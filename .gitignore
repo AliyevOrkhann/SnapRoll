@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+*.log
+appsettings.*.local.json
+
+client/node_modules/
+client/dist/
+client/.vite/
+client/.cache/
+client/.eslintcache
+
+*.env
+*.env.*
+client/.env
+client/.env.*
