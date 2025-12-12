@@ -1,0 +1,6 @@
+@SnapRoll.API_HostAddress = http://localhost:5038
+
+GET {{SnapRoll.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
