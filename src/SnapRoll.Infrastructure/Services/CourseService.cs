@@ -1,0 +1,234 @@
+using Microsoft.EntityFrameworkCore;
+using SnapRoll.Application.DTOs;
+using SnapRoll.Application.Interfaces;
+using SnapRoll.Domain.Entities;
+using SnapRoll.Domain.Enums;
+using SnapRoll.Infrastructure.Data;
+
+namespace SnapRoll.Infrastructure.Services;
+
+/// <summary>
+/// Service for course and enrollment management.
+/// </summary>
+public class CourseService : ICourseService
+{
+    private readonly SnapRollDbContext _context;
+
+    public CourseService(SnapRollDbContext context)
+    {
+        _context = context;
+    }
+
+    /// <summary>
+    /// Creates a new course.
+    /// </summary>
+    public async Task<CourseDto> CreateCourseAsync(string instructorId, CreateCourseRequest request)
+    {
+        // Check if course code already exists
+        var existingCourse = await _context.Courses
+            .AnyAsync(c => c.CourseCode == request.CourseCode);
+
+        if (existingCourse)
+            throw new InvalidOperationException($"A course with code '{request.CourseCode}' already exists");
+
+        var course = new Course
+        {
+            Id = Guid.NewGuid(),
+            CourseCode = request.CourseCode,
+            Name = request.Name,
+            Description = request.Description,
+            InstructorId = instructorId,
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        _context.Courses.Add(course);
+        await _context.SaveChangesAsync();
+
+        return await MapToDtoAsync(course);
+    }
+
+    /// <summary>
+    /// Gets course by ID.
+    /// </summary>
+    public async Task<CourseDto?> GetCourseAsync(Guid courseId)
+    {
+        var course = await _context.Courses
+            .Include(c => c.Instructor)
+            .FirstOrDefaultAsync(c => c.Id == courseId);
+
+        return course != null ? await MapToDtoAsync(course) : null;
+    }
+
+    /// <summary>
+    /// Gets all courses for an instructor.
+    /// </summary>
+    public async Task<List<CourseDto>> GetInstructorCoursesAsync(string instructorId)
+    {
+        var courses = await _context.Courses
+            .Include(c => c.Instructor)
+            .Where(c => c.InstructorId == instructorId)
+            .OrderBy(c => c.CourseCode)
+            .ToListAsync();
+
+        var dtos = new List<CourseDto>();
+        foreach (var course in courses)
+        {
+            dtos.Add(await MapToDtoAsync(course));
+        }
+        return dtos;
+    }
+
+    /// <summary>
+    /// Gets all courses a student is enrolled in.
+    /// </summary>
+    public async Task<List<CourseDto>> GetStudentCoursesAsync(string studentId)
+    {
+        var courseIds = await _context.CourseEnrollments
+            .Where(e => e.StudentId == studentId && e.IsActive)
+            .Select(e => e.CourseId)
+            .ToListAsync();
+
+        var courses = await _context.Courses
+            .Include(c => c.Instructor)
+            .Where(c => courseIds.Contains(c.Id))
+            .OrderBy(c => c.CourseCode)
+            .ToListAsync();
+
+        var dtos = new List<CourseDto>();
+        foreach (var course in courses)
+        {
+            dtos.Add(await MapToDtoAsync(course));
+        }
+        return dtos;
+    }
+
+    /// <summary>
+    /// Gets all courses (admin only).
+    /// </summary>
+    public async Task<List<CourseDto>> GetAllCoursesAsync()
+    {
+        var courses = await _context.Courses
+            .Include(c => c.Instructor)
+            .OrderBy(c => c.CourseCode)
+            .ToListAsync();
+
+        var dtos = new List<CourseDto>();
+        foreach (var course in courses)
+        {
+            dtos.Add(await MapToDtoAsync(course));
+        }
+        return dtos;
+    }
+
+    /// <summary>
+    /// Enrolls a student in a course.
+    /// </summary>
+    public async Task<bool> EnrollStudentAsync(EnrollStudentRequest request)
+    {
+        // Check if already enrolled
+        var existingEnrollment = await _context.CourseEnrollments
+            .FirstOrDefaultAsync(e => e.CourseId == request.CourseId && e.StudentId == request.StudentId);
+
+        if (existingEnrollment != null)
+        {
+            if (existingEnrollment.IsActive)
+                return false; // Already enrolled
+
+            // Reactivate enrollment
+            existingEnrollment.IsActive = true;
+            existingEnrollment.EnrolledAt = DateTime.UtcNow;
+        }
+        else
+        {
+            var enrollment = new CourseEnrollment
+            {
+                Id = Guid.NewGuid(),
+                CourseId = request.CourseId,
+                StudentId = request.StudentId,
+                EnrolledAt = DateTime.UtcNow,
+                IsActive = true
+            };
+            _context.CourseEnrollments.Add(enrollment);
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Bulk enrolls students in a course.
+    /// </summary>
+    public async Task<int> BulkEnrollStudentsAsync(BulkEnrollRequest request)
+    {
+        var enrolledCount = 0;
+
+        foreach (var studentId in request.StudentIds)
+        {
+            var enrolled = await EnrollStudentAsync(new EnrollStudentRequest
+            {
+                CourseId = request.CourseId,
+                StudentId = studentId
+            });
+
+            if (enrolled) enrolledCount++;
+        }
+
+        return enrolledCount;
+    }
+
+    /// <summary>
+    /// Removes a student from a course.
+    /// </summary>
+    public async Task<bool> UnenrollStudentAsync(Guid courseId, string studentId)
+    {
+        var enrollment = await _context.CourseEnrollments
+            .FirstOrDefaultAsync(e => e.CourseId == courseId && e.StudentId == studentId && e.IsActive);
+
+        if (enrollment == null)
+            return false;
+
+        enrollment.IsActive = false;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Gets enrolled students for a course.
+    /// </summary>
+    public async Task<List<UserDto>> GetEnrolledStudentsAsync(Guid courseId)
+    {
+        return await _context.CourseEnrollments
+            .Where(e => e.CourseId == courseId && e.IsActive)
+            .Include(e => e.Student)
+            .Select(e => new UserDto
+            {
+                Id = e.StudentId,
+                Email = e.Student.Email ?? "",
+                FullName = e.Student.FullName,
+                UniversityId = e.Student.UniversityId,
+                UserType = e.Student.UserType.ToString()
+            })
+            .OrderBy(u => u.FullName)
+            .ToListAsync();
+    }
+
+    private async Task<CourseDto> MapToDtoAsync(Course course)
+    {
+        var enrolledCount = await _context.CourseEnrollments
+            .CountAsync(e => e.CourseId == course.Id && e.IsActive);
+
+        return new CourseDto
+        {
+            Id = course.Id,
+            CourseCode = course.CourseCode,
+            Name = course.Name,
+            Description = course.Description,
+            InstructorId = course.InstructorId,
+            InstructorName = course.Instructor?.FullName ?? "",
+            EnrolledStudentCount = enrolledCount,
+            IsActive = course.IsActive,
+            CreatedAt = course.CreatedAt
+        };
+    }
+}
