@@ -90,10 +90,20 @@ public class QrEngine : IQrEngine
                 return TokenValidationResult.Failure(ScanResult.SessionInvalid, "Token is for a different session");
             }
 
-            // Validate timestamp format
-            if (!DateTime.TryParse(timestampPart, out var tokenTimestamp))
+            // Validate timestamp format - parse as UTC to avoid timezone issues
+            if (!DateTime.TryParse(timestampPart, null, System.Globalization.DateTimeStyles.RoundtripKind, out var tokenTimestamp))
             {
                 return TokenValidationResult.Failure(ScanResult.Invalid, "Invalid timestamp in token");
+            }
+            
+            // Ensure we're comparing UTC times
+            if (tokenTimestamp.Kind == DateTimeKind.Local)
+            {
+                tokenTimestamp = tokenTimestamp.ToUniversalTime();
+            }
+            else if (tokenTimestamp.Kind == DateTimeKind.Unspecified)
+            {
+                tokenTimestamp = DateTime.SpecifyKind(tokenTimestamp, DateTimeKind.Utc);
             }
 
             // Verify signature
@@ -116,9 +126,11 @@ public class QrEngine : IQrEngine
             }
 
             // Check if token is from the future (clock skew protection)
-            if (tokenAge.TotalSeconds < -1) // Allow 1 second of clock skew
+            // Allow 30 seconds of clock skew to handle mobile device time differences
+            if (tokenAge.TotalSeconds < -30)
             {
-                return TokenValidationResult.Failure(ScanResult.Invalid, "Token timestamp is in the future");
+                return TokenValidationResult.Failure(ScanResult.Invalid, 
+                    $"Token timestamp is in the future (clock skew: {-tokenAge.TotalSeconds:F1}s). Please sync your device time.");
             }
 
             return TokenValidationResult.Success(tokenSessionId, tokenTimestamp);

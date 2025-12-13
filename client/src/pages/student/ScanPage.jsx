@@ -27,7 +27,23 @@ export const ScanPage = () => {
 
             try {
                 // Parse the QR payload
-                const payload = JSON.parse(decodedText);
+                let payload;
+                try {
+                    payload = JSON.parse(decodedText);
+                } catch (parseErr) {
+                    console.error("QR Parse Error - Raw data:", decodedText);
+                    setScanResult({ success: false, message: 'QR code data is not valid JSON' });
+                    return;
+                }
+
+                // Validate required fields exist
+                if (!payload.sessionId || !payload.token) {
+                    console.error("QR Missing Fields - Payload:", payload);
+                    setScanResult({ success: false, message: 'QR code missing sessionId or token' });
+                    return;
+                }
+
+                console.log("Sending scan request:", { sessionId: payload.sessionId, token: payload.token?.substring(0, 50) + '...' });
 
                 // Send to API (backend uses camelCase JSON properties)
                 await api.post('/Attendance/scan', {
@@ -42,9 +58,10 @@ export const ScanPage = () => {
                 setTimeout(() => navigate('/student'), 3000);
 
             } catch (err) {
-                console.error("Scan Error", err);
-                const msg = err.response?.data?.message || 'Invalid QR Code or Scan Failed';
-                setScanResult({ success: false, message: msg });
+                console.error("Scan API Error:", err);
+                console.error("Response data:", err.response?.data);
+                const msg = err.response?.data?.message || err.response?.data || 'Invalid QR Code or Scan Failed';
+                setScanResult({ success: false, message: typeof msg === 'string' ? msg : JSON.stringify(msg) });
             }
         };
 
