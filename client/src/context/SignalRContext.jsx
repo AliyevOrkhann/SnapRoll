@@ -9,13 +9,14 @@ export const SignalRProvider = ({ children }) => {
     const [connection, setConnection] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
 
+    const defaultApiOrigin = `${window.location.protocol}//${window.location.hostname}:5038`;
+    const apiOrigin = import.meta.env.VITE_API_ORIGIN || defaultApiOrigin;
+
     useEffect(() => {
         if (user?.userType === 'Instructor' && !connection) {
             const newConnection = new signalR.HubConnectionBuilder()
-                .withUrl('http://10.0.8.13:5038/hubs/session', {
+                .withUrl(`${apiOrigin}/hubs/session`, {
                     accessTokenFactory: () => localStorage.getItem('token') || '',
-                    skipNegotiation: true,
-                    transport: signalR.HttpTransportType.WebSockets
                 })
                 .withAutomaticReconnect()
                 .build();

@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const defaultApiBaseUrl = `${window.location.protocol}//${window.location.hostname}:5038/api`;
+
 const api = axios.create({
-    baseURL: 'http://10.0.8.13:5038/api', // Match the backend port
+    baseURL: import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl,
     headers: {
         'Content-Type': 'application/json',
     },
