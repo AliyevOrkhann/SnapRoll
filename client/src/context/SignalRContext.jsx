@@ -9,7 +9,7 @@ export const SignalRProvider = ({ children }) => {
     const [connection, setConnection] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
 
-    const defaultApiOrigin = `${window.location.protocol}//${window.location.hostname}:5038`;
+    const defaultApiOrigin = window.location.origin;
     const apiOrigin = import.meta.env.VITE_API_ORIGIN || defaultApiOrigin;
 
     useEffect(() => {

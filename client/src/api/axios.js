@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const defaultApiBaseUrl = `${window.location.protocol}//${window.location.hostname}:5038/api`;
+const defaultApiBaseUrl = `${window.location.origin}/api`;
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl,
