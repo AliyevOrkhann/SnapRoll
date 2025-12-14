@@ -14,6 +14,7 @@ export const InstructorDashboard = () => {
     const [students, setStudents] = useState([]);
     const [studentsLoading, setStudentsLoading] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState(null);
+    const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -49,13 +50,13 @@ export const InstructorDashboard = () => {
         if (navigator.clipboard?.writeText) {
             navigator.clipboard.writeText(link)
                 .then(() => {
-                    alert('Enrollment link copied to clipboard!');
+                    setNotification({ show: true, message: 'Enrollment link copied to clipboard!', type: 'success' });
                 })
                 .catch(() => {
-                    alert('Failed to copy link. You can share this manually: ' + link);
+                    setNotification({ show: true, message: `Failed to copy link. You can share this manually: ${link}`, type: 'error' });
                 });
         } else {
-            alert('Copy is not supported in this browser. Share this link: ' + link);
+            setNotification({ show: true, message: `Copy is not supported in this browser. Share this link: ${link}`, type: 'error' });
         }
     };
 
@@ -198,6 +199,37 @@ export const InstructorDashboard = () => {
                     </ul>
                 </div>
             </section>
+
+            {/* Notification Modal */}
+            {notification.show && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+                        <div className={`flex items-center justify-center w-12 h-12 mx-auto rounded-full mb-4 ${
+                            notification.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                        }`}>
+                            <LinkIcon className={`w-6 h-6 ${
+                                notification.type === 'success' ? 'text-green-600' : 'text-red-600'
+                            }`} />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                            {notification.type === 'success' ? 'Success!' : 'Notice'}
+                        </h3>
+                        <p className="text-gray-600 text-center mb-6 break-words">
+                            {notification.message}
+                        </p>
+                        <button
+                            onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+                            className={`w-full px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
+                                notification.type === 'success' 
+                                    ? 'bg-green-600 hover:bg-green-700' 
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

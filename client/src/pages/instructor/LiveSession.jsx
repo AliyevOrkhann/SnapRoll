@@ -16,6 +16,8 @@ export const LiveSession = () => {
     const [loading, setLoading] = useState(true);
     const [enrolledStudents, setEnrolledStudents] = useState([]);
     const [attendanceRecords, setAttendanceRecords] = useState([]);
+    const [showEndSessionModal, setShowEndSessionModal] = useState(false);
+    const [showSessionClosedModal, setShowSessionClosedModal] = useState(false);
     const streamRef = useRef(null);
 
     // 1. Initial Data Fetch
@@ -39,19 +41,24 @@ export const LiveSession = () => {
 
     // 2. Setup SignalR Listeners & QR Stream
     useEffect(() => {
-        if (!isConnected || !connection) return;
+        if (!isConnected || !connection || !sessionId) return;
 
         // A. Listen for attendance updates
-        const handleAttendanceUpdate = (updatedStats) => {
+        const handleAttendanceUpdate = async (updatedStats) => {
+            console.log('Received attendance update via SignalR:', updatedStats);
             setStats(updatedStats);
             // Refresh detailed attendance list when SignalR notifies about updates
-            fetchAttendanceRecords();
+            try {
+                const res = await api.get(`/Dashboard/${sessionId}/attendance`);
+                setAttendanceRecords(res.data || []);
+            } catch (err) {
+                console.error('Failed to fetch attendance records', err);
+            }
         };
 
         // B. Handle session closed event
         const handleSessionClosed = () => {
-            alert('Session has been closed.');
-            navigate('/instructor');
+            setShowSessionClosedModal(true);
         };
 
         connection.on('AttendanceUpdated', handleAttendanceUpdate);
@@ -124,8 +131,6 @@ export const LiveSession = () => {
     const absentStudents = (enrolledStudents || []).filter(s => !presentSet.has(s.id));
 
     const closeSession = async () => {
-        if (!window.confirm('Are you sure you want to close this session? Students will no longer be able to scan.')) return;
-
         try {
             await api.post(`/Session/${sessionId}/close`);
             // SignalR will handle the redirect via SessionClosed event, but we can double safe it
@@ -133,6 +138,7 @@ export const LiveSession = () => {
         } catch (err) {
             alert('Failed to close session');
         }
+        setShowEndSessionModal(false);
     };
 
     if (loading) return <div className="p-8 text-center text-gray-500">Loading Session...</div>;
@@ -252,7 +258,7 @@ export const LiveSession = () => {
                     </div>
 
                     <button
-                        onClick={closeSession}
+                        onClick={() => setShowEndSessionModal(true)}
                         className="w-full mt-2 py-3 px-4 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl font-medium flex items-center justify-center transition-colors"
                     >
                         <StopCircle className="w-5 h-5 mr-2" />
@@ -260,6 +266,60 @@ export const LiveSession = () => {
                     </button>
                 </div>
             </div>
+
+            {/* End Session Modal */}
+            {showEndSessionModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+                        <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                            <StopCircle className="w-6 h-6 text-red-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                            End Session?
+                        </h3>
+                        <p className="text-gray-600 text-center mb-6">
+                            Are you sure you want to close this session? Students will no longer be able to scan.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowEndSessionModal(false)}
+                                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={closeSession}
+                                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                            >
+                                End Session
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Session Closed Notification Modal */}
+            {showSessionClosedModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+                        <div className="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 rounded-full mb-4">
+                            <StopCircle className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                            Session Closed
+                        </h3>
+                        <p className="text-gray-600 text-center mb-6">
+                            This session has been closed successfully.
+                        </p>
+                        <button
+                            onClick={() => navigate('/instructor')}
+                            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                        >
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
