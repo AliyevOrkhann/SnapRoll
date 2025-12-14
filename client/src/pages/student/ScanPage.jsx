@@ -75,9 +75,12 @@ export const ScanPage = () => {
                 {
                     fps: 10,
                     qrbox: { width: 250, height: 250 },
-                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                    videoConstraints: {
+                        facingMode: { exact: "environment" }
+                    }
                 },
-                /* verbose= */ false
+                false
             );
             html5QrcodeScanner.render(onScanSuccess, onScanFailure);
         }
