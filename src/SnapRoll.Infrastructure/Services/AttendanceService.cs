@@ -92,6 +92,42 @@ public class AttendanceService : IAttendanceService
             };
         }
 
+        // --- GEOFENCING CHECK ---
+        if (session.Latitude.HasValue && session.Longitude.HasValue)
+        {
+            if (!request.Latitude.HasValue || !request.Longitude.HasValue)
+            {
+                await LogScanAttemptAsync(request.SessionId, studentId, request.Token,
+                    ScanResult.LocationRequired, request.DeviceMetadata, ipAddress, "Location required");
+                await _context.SaveChangesAsync();
+
+                return new ScanResponse
+                {
+                    Success = false,
+                    Result = ScanResult.LocationRequired,
+                    Message = "Location permission is required for this session."
+                };
+            }
+
+            double distance = CalculateDistance(
+                session.Latitude.Value, session.Longitude.Value,
+                request.Latitude.Value, request.Longitude.Value);
+
+            if (distance > session.MaxDistanceMeters)
+            {
+                await LogScanAttemptAsync(request.SessionId, studentId, request.Token,
+                    ScanResult.LocationInvalid, request.DeviceMetadata, ipAddress, $"Too far: {distance:F1}m > {session.MaxDistanceMeters}m");
+                await _context.SaveChangesAsync();
+
+                return new ScanResponse
+                {
+                    Success = false,
+                    Result = ScanResult.LocationInvalid,
+                    Message = $"You are too far from the classroom ({distance:F0}m away)."
+                };
+            }
+        }
+
         // Validate the QR token
         var tokenValidation = _qrEngine.ValidateToken(request.Token, request.SessionId);
         if (!tokenValidation.IsValid)
@@ -396,4 +432,21 @@ public class AttendanceService : IAttendanceService
         // Note: SaveChanges is called by the parent method
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Haversine formula to calculate distance between two coordinates in meters.
+    /// </summary>
+    private static double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        var R = 6371e3; // Earth radius in meters
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return R * c;
+    }
+
+    private static double ToRadians(double degrees) => degrees * Math.PI / 180;
 }

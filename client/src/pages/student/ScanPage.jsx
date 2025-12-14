@@ -45,17 +45,40 @@ export const ScanPage = () => {
 
                 console.log("Sending scan request:", { sessionId: payload.sessionId, token: payload.token?.substring(0, 50) + '...' });
 
-                // Send to API (backend uses camelCase JSON properties)
-                await api.post('/Attendance/scan', {
-                    sessionId: payload.sessionId,
-                    token: payload.token,
-                    deviceMetadata: navigator.userAgent
-                });
+                // Request location before sending
+                if (!navigator.geolocation) {
+                    setScanResult({ success: false, message: 'Geolocation is not supported by this browser.' });
+                    return;
+                }
 
-                setScanResult({ success: true, message: 'Attendance Marked Successfully!' });
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        try {
+                            // Send to API (backend uses camelCase JSON properties)
+                            await api.post('/Attendance/scan', {
+                                sessionId: payload.sessionId,
+                                token: payload.token,
+                                deviceMetadata: navigator.userAgent,
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude
+                            });
 
-                // Auto redirect after success
-                setTimeout(() => navigate('/student'), 3000);
+                            setScanResult({ success: true, message: 'Attendance Marked Successfully!' });
+
+                            // Auto redirect after success
+                            setTimeout(() => navigate('/student'), 3000);
+                        } catch (err) {
+                            console.error("Scan API Error:", err);
+                            console.error("Response data:", err.response?.data);
+                            const msg = err.response?.data?.message || err.response?.data || 'Invalid QR Code or Scan Failed';
+                            setScanResult({ success: false, message: typeof msg === 'string' ? msg : JSON.stringify(msg) });
+                        }
+                    },
+                    (error) => {
+                        console.error("Location error:", error);
+                        setScanResult({ success: false, message: 'Location permission required to mark attendance.' });
+                    }
+                );
 
             } catch (err) {
                 console.error("Scan API Error:", err);

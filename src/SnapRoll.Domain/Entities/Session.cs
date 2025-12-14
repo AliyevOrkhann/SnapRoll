@@ -47,6 +47,22 @@ public class Session
     public int LateThresholdSeconds { get; set; } = 60;
 
     /// <summary>
+    /// Instructor's Latitude at session start.
+    /// </summary>
+    public double? Latitude { get; set; }
+
+    /// <summary>
+    /// Instructor's Longitude at session start.
+    /// </summary>
+    public double? Longitude { get; set; }
+
+    /// <summary>
+    /// Maximum allowed distance in meters for attendance (Geofencing).
+    /// Default is 50 meters.
+    /// </summary>
+    public int MaxDistanceMeters { get; set; } = 50;
+
+    /// <summary>
     /// Attendance records for this session.
     /// </summary>
     public virtual ICollection<AttendanceRecord> AttendanceRecords { get; set; } = new List<AttendanceRecord>();

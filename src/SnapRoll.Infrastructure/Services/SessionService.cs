@@ -51,7 +51,10 @@ public class SessionService : ISessionService
             SessionCode = sessionCode,
             StartTime = now,
             IsActive = true,
-            LateThresholdSeconds = request.LateThresholdSeconds ?? 60
+            LateThresholdSeconds = request.LateThresholdSeconds ?? 60,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            MaxDistanceMeters = request.MaxDistanceMeters ?? 50
         };
 
         _context.Sessions.Add(session);

@@ -33,5 +33,15 @@ public enum ScanResult
     /// <summary>
     /// Student is not enrolled in the course.
     /// </summary>
-    NotEnrolled = 5
+    NotEnrolled = 5,
+
+    /// <summary>
+    /// Location data is required but was not provided.
+    /// </summary>
+    LocationRequired = 6,
+
+    /// <summary>
+    /// Student location is too far from the session location.
+    /// </summary>
+    LocationInvalid = 7
 }

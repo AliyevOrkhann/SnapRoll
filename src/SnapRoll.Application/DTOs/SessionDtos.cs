@@ -16,6 +16,10 @@ public class CreateSessionRequest
     /// Optional late threshold in seconds (default: 60).
     /// </summary>
     public int? LateThresholdSeconds { get; set; }
+
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public int? MaxDistanceMeters { get; set; }
 }
 
 /// <summary>
@@ -57,6 +61,9 @@ public class ScanRequest
     /// Device metadata (User-Agent, OS, etc.).
     /// </summary>
     public string? DeviceMetadata { get; set; }
+
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 
 /// <summary>

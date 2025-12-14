@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SnapRoll.Infrastructure.Data;
@@ -11,9 +12,11 @@ using SnapRoll.Infrastructure.Data;
 namespace SnapRoll.Infrastructure.Migrations
 {
     [DbContext(typeof(SnapRollDbContext))]
-    partial class SnapRollDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251214193337_AddSessionLocation")]
+    partial class AddSessionLocation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
