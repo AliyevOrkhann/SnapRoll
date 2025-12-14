@@ -25,8 +25,22 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 if (connectionString.StartsWith("postgres://") || connectionString.StartsWith("postgresql://"))
 {
     var databaseUri = new Uri(connectionString);
-    var userInfo = databaseUri.UserInfo.Split(':');
-    connectionString = $"Host={databaseUri.Host};Port={databaseUri.Port};Database={databaseUri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SslMode=Require;Trust Server Certificate=true";
+    string dbName = databaseUri.AbsolutePath.TrimStart('/');
+    string[] userInfo = databaseUri.UserInfo.Split(new[] { ':' }, 2);
+    
+    // Default to port 5432 if not specified (common in postgresql:// URIs)
+    int port = databaseUri.Port > 0 ? databaseUri.Port : 5432;
+    
+    // Correctly split username and password
+    string username = userInfo[0];
+    string password = userInfo.Length > 1 ? userInfo[1] : "";
+    
+    // Determine SSL mode: Internal (dpg-...) connections on Render do not use SSL. External do.
+    // If we enforce SSL on internal connections, it will fail.
+    bool isInternal = !databaseUri.Host.Contains("render.com");
+    string sslMode = isInternal ? "Disable" : "Require";
+
+    connectionString = $"Host={databaseUri.Host};Port={port};Database={dbName};Username={username};Password={password};SslMode={sslMode};Trust Server Certificate=true";
 }
 
 builder.Services.AddDbContext<SnapRollDbContext>(options =>
