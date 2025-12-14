@@ -125,7 +125,8 @@ builder.Services.AddCors(options =>
             policy.WithOrigins(
                     "http://localhost:3000", "https://localhost:3000",
                     "http://localhost:5173", "https://localhost:5173",
-                    "http://10.0.8.13:5173")
+                    "http://10.0.8.13:5173",
+                    "https://snaproll.onrender.com")
                   .AllowAnyMethod()
                   .AllowAnyHeader()
                   .AllowCredentials();
