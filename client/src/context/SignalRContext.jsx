@@ -9,8 +9,7 @@ export const SignalRProvider = ({ children }) => {
     const [connection, setConnection] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
 
-    const defaultApiOrigin = window.location.origin;
-    const apiOrigin = import.meta.env.VITE_API_ORIGIN || defaultApiOrigin;
+    const apiOrigin = import.meta.env.VITE_API_URL || window.location.origin;
 
     useEffect(() => {
         if (user?.userType === 'Instructor' && !connection) {
