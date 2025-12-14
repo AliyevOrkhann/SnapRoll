@@ -37,4 +37,15 @@ public interface IAttendanceService
     /// Checks if a student has already scanned for a session.
     /// </summary>
     Task<bool> HasStudentScannedAsync(Guid sessionId, string studentId);
+
+    /// <summary>
+    /// Marks a student as present for a session (used by instructors/admins).
+    /// </summary>
+    Task MarkStudentPresentAsync(Guid sessionId, string studentId, string markedBy);
+
+    /// <summary>
+    /// Unmarks a student's attendance for a session (used by instructors/admins).
+    /// Removes the attendance record so the student becomes pending again.
+    /// </summary>
+    Task UnmarkStudentAsync(Guid sessionId, string studentId, string markedBy);
 }

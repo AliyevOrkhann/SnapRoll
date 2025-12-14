@@ -277,6 +277,72 @@ public class AttendanceService : IAttendanceService
     }
 
     /// <summary>
+    /// Marks a student as present (or late) manually by an instructor/admin.
+    /// </summary>
+    public async Task MarkStudentPresentAsync(Guid sessionId, string studentId, string markedBy)
+    {
+        // Get the session
+        var session = await _context.Sessions
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+
+        if (session == null)
+            throw new ArgumentException("Session not found", nameof(sessionId));
+
+        // Check enrollment
+        var isEnrolled = await IsStudentEnrolledAsync(sessionId, studentId);
+        if (!isEnrolled)
+            throw new InvalidOperationException("Student is not enrolled in the course for this session");
+
+        // Check for existing attendance
+        var hasScanned = await HasStudentScannedAsync(sessionId, studentId);
+        if (hasScanned)
+            throw new InvalidOperationException("Student already has an attendance record for this session");
+
+        // Determine status based on session timeframe
+        var now = DateTime.UtcNow;
+        var status = now <= session.LateThresholdTime ? AttendanceStatus.Present : AttendanceStatus.Late;
+
+        var attendanceRecord = new AttendanceRecord
+        {
+            Id = Guid.NewGuid(),
+            SessionId = sessionId,
+            StudentId = studentId,
+            ScannedAt = now,
+            Status = status,
+            CreatedAt = now
+        };
+
+        _context.AttendanceRecords.Add(attendanceRecord);
+
+        // Log the manual marking as a scan log for audit
+        await LogScanAttemptAsync(sessionId, studentId, string.Empty,
+            ScanResult.Success, null, null, $"Marked manually by {markedBy}");
+
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Unmarks a student's attendance record for the session (undo manual or scanned mark).
+    /// </summary>
+    public async Task UnmarkStudentAsync(Guid sessionId, string studentId, string markedBy)
+    {
+        // Find the attendance record
+        var attendance = await _context.AttendanceRecords
+            .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == studentId);
+
+        if (attendance == null)
+            throw new InvalidOperationException("No attendance record found for this student in the session");
+
+        _context.AttendanceRecords.Remove(attendance);
+
+        // Log the undo action
+        await LogScanAttemptAsync(sessionId, studentId, string.Empty,
+            ScanResult.Success, null, null, $"Unmarked by {markedBy}");
+
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Checks if a student is enrolled in the course for a session.
     /// </summary>
     public async Task<bool> IsStudentEnrolledAsync(Guid sessionId, string studentId)

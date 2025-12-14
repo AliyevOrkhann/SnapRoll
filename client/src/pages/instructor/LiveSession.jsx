@@ -16,6 +16,7 @@ export const LiveSession = () => {
     const [loading, setLoading] = useState(true);
     const [enrolledStudents, setEnrolledStudents] = useState([]);
     const [attendanceRecords, setAttendanceRecords] = useState([]);
+    const [markingIds, setMarkingIds] = useState([]);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
     const [showSessionClosedModal, setShowSessionClosedModal] = useState(false);
     const streamRef = useRef(null);
@@ -225,8 +226,33 @@ export const LiveSession = () => {
                             <ul className="max-h-40 overflow-auto divide-y divide-gray-100">
                                 {presentStudents.map(student => (
                                     <li key={student.id} className="py-2 flex justify-between items-center">
-                                        <span className="text-sm font-medium">{student.fullName}</span>
-                                        <span className="text-xs text-gray-500">{student.universityId}</span>
+                                        <div>
+                                            <span className="text-sm font-medium">{student.fullName}</span>
+                                            <div className="text-xs text-gray-400">{student.universityId}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                disabled={markingIds.includes(student.id)}
+                                                onClick={async () => {
+                                                    try {
+                                                        setMarkingIds(prev => [...prev, student.id]);
+                                                        await api.post(`/Session/${session.id}/unmark-student`, { studentId: student.id });
+                                                        await fetchAttendanceRecords();
+                                                        const statsRes = await api.get(`/Dashboard/${session.id}/stats`);
+                                                        setStats(statsRes.data);
+                                                    } catch (err) {
+                                                        console.error('Failed to unmark student', err);
+                                                        alert('Failed to unmark: ' + (err?.response?.data?.message || err.message));
+                                                    } finally {
+                                                        setMarkingIds(prev => prev.filter(id => id !== student.id));
+                                                    }
+                                                }}
+                                                title="Undo present (mark absent)"
+                                                className="w-6 h-6 rounded-full flex items-center justify-center bg-red-600 text-white text-xs disabled:opacity-50"
+                                            >
+                                                A
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                                 {presentStudents.length === 0 && <li className="py-2 text-xs text-gray-400">No students present yet.</li>}
@@ -237,8 +263,34 @@ export const LiveSession = () => {
                             <ul className="max-h-40 overflow-auto divide-y divide-gray-100">
                                 {absentStudents.map(student => (
                                     <li key={student.id} className="py-2 flex justify-between items-center">
-                                        <span className="text-sm">{student.fullName}</span>
-                                        <span className="text-xs text-gray-500">{student.universityId}</span>
+                                        <div>
+                                            <span className="text-sm">{student.fullName}</span>
+                                            <div className="text-xs text-gray-400">{student.universityId}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                disabled={markingIds.includes(student.id)}
+                                                onClick={async () => {
+                                                    try {
+                                                        setMarkingIds(prev => [...prev, student.id]);
+                                                        await api.post(`/Session/${session.id}/mark-student`, { studentId: student.id });
+                                                        // Refresh attendance and stats
+                                                        await fetchAttendanceRecords();
+                                                        const statsRes = await api.get(`/Dashboard/${session.id}/stats`);
+                                                        setStats(statsRes.data);
+                                                    } catch (err) {
+                                                        console.error('Failed to mark student present', err);
+                                                        alert('Failed to mark present: ' + (err?.response?.data?.message || err.message));
+                                                    } finally {
+                                                        setMarkingIds(prev => prev.filter(id => id !== student.id));
+                                                    }
+                                                }}
+                                                title="Mark present"
+                                                className="w-6 h-6 rounded-full flex items-center justify-center bg-green-600 text-white text-xs disabled:opacity-50"
+                                            >
+                                                P
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                                 {absentStudents.length === 0 && <li className="py-2 text-xs text-gray-400">No absent students.</li>}

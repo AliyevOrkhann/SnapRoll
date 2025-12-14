@@ -161,6 +161,80 @@ public class SessionController : ControllerBase
     }
 
     /// <summary>
+    /// Manually mark a student as present for a session (Instructor/Admin).
+    /// </summary>
+    [HttpPost("{sessionId:guid}/mark-student")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> MarkStudentPresent(Guid sessionId, [FromBody] MarkStudentRequest request)
+    {
+        try
+        {
+            // Use attendance service to mark the student
+            var attendanceService = HttpContext.RequestServices.GetService(typeof(SnapRoll.Application.Interfaces.IAttendanceService)) as SnapRoll.Application.Interfaces.IAttendanceService;
+            if (attendanceService == null)
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Attendance service not available" });
+
+            await attendanceService.MarkStudentPresentAsync(sessionId, request.StudentId, UserId);
+
+            // After marking, notify connected clients about updated stats
+            var stats = await attendanceService.GetSessionStatsAsync(sessionId);
+            await SessionHub.NotifyAttendanceUpdateAsync(_hubContext, sessionId, stats);
+
+            return Ok(new { success = true });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Unmark a student's attendance for a session (Instructor/Admin).
+    /// </summary>
+    [HttpPost("{sessionId:guid}/unmark-student")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UnmarkStudent(Guid sessionId, [FromBody] MarkStudentRequest request)
+    {
+        try
+        {
+            var attendanceService = HttpContext.RequestServices.GetService(typeof(SnapRoll.Application.Interfaces.IAttendanceService)) as SnapRoll.Application.Interfaces.IAttendanceService;
+            if (attendanceService == null)
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Attendance service not available" });
+
+            await attendanceService.UnmarkStudentAsync(sessionId, request.StudentId, UserId);
+
+            var stats = await attendanceService.GetSessionStatsAsync(sessionId);
+            await SessionHub.NotifyAttendanceUpdateAsync(_hubContext, sessionId, stats);
+
+            return Ok(new { success = true });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Gets historical sessions for a course (instructor only).
     /// </summary>
     [HttpGet("course/{courseId:guid}/history")]
