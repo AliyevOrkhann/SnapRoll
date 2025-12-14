@@ -147,6 +147,14 @@ export const LiveSession = () => {
     return (
         <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row bg-gray-100 p-4 gap-4">
 
+            {/* Back to Dashboard */}
+            <button
+                onClick={() => navigate('/instructor')}
+                className="mb-4 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm self-start"
+            >
+                ← Back to Dashboard
+            </button>
+
             {/* Left Panel: QR Code (Focus) */}
             <div className="flex-1 bg-white rounded-2xl shadow-xl flex flex-col items-center justify-center p-8 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 animate-pulse" />
