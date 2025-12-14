@@ -123,6 +123,33 @@ public class SessionService : ISessionService
     }
 
     /// <summary>
+    /// Gets all sessions for a course ensuring the caller is the course instructor.
+    /// </summary>
+    public async Task<List<SessionResponse>> GetCourseSessionsForInstructorAsync(Guid courseId, string instructorId)
+    {
+        var course = await _context.Courses.FirstOrDefaultAsync(c => c.Id == courseId);
+        if (course == null)
+            throw new ArgumentException("Course not found", nameof(courseId));
+
+        if (course.InstructorId != instructorId)
+            throw new UnauthorizedAccessException("You are not the instructor for this course");
+
+        var sessions = await _context.Sessions
+            .Include(s => s.Course)
+            .Where(s => s.CourseId == courseId)
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
+
+        var responses = new List<SessionResponse>();
+        foreach (var session in sessions)
+        {
+            responses.Add(await MapToResponseAsync(session, session.Course));
+        }
+
+        return responses;
+    }
+
+    /// <summary>
     /// Gets all active sessions for an instructor.
     /// </summary>
     public async Task<List<SessionResponse>> GetActiveSessionsAsync(string instructorId)
@@ -177,7 +204,11 @@ public class SessionService : ISessionService
 
         foreach (var record in records)
         {
-            var scannedAt = record.ScannedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+            // Stored timestamps are UTC. Convert to local time for CSV readability.
+            var scannedAt = record.ScannedAt.HasValue
+                ? record.ScannedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                : "";
+
             sb.AppendLine($"{record.Student.UniversityId},{record.Student.FullName},{record.Student.Email},{record.Status},{scannedAt}");
         }
 

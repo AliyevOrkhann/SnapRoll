@@ -28,6 +28,11 @@ public interface ISessionService
     Task<List<SessionResponse>> GetCourseSessionsAsync(Guid courseId);
 
     /// <summary>
+    /// Gets all sessions for a course ensuring the caller is the course instructor.
+    /// </summary>
+    Task<List<SessionResponse>> GetCourseSessionsForInstructorAsync(Guid courseId, string instructorId);
+
+    /// <summary>
     /// Gets all active sessions for an instructor.
     /// </summary>
     Task<List<SessionResponse>> GetActiveSessionsAsync(string instructorId);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
-import { Plus, Users, ArrowRight, Play, LinkIcon } from 'lucide-react';
+import { Plus, Users, ArrowRight, Play, LinkIcon, Activity } from 'lucide-react';
 import { CreateCourseModal } from '../../components/Instructor/CreateCourseModal';
 import StudentsModal from '../../components/Instructor/StudentsModal';
 
@@ -177,6 +177,13 @@ export const InstructorDashboard = () => {
                                             <Users className="h-3 w-3 mr-1 text-indigo-600" />
                                             Students
                                         </button>
+                                        <Link
+                                            to={`/instructor/course/${course.id}/history`}
+                                            className="inline-flex items-center px-3 py-1.5 border text-xs font-medium rounded-full text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none mr-2"
+                                        >
+                                            <Activity className="h-3 w-3 mr-1 text-indigo-600" />
+                                            History
+                                        </Link>
                                         <button
                                             type="button"
                                             onClick={() => copyEnrollLink(course.id)}

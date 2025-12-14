@@ -304,7 +304,7 @@ public class AttendanceService : IAttendanceService
     /// <summary>
     /// Logs a scan attempt for audit purposes.
     /// </summary>
-    private async Task LogScanAttemptAsync(
+    private Task LogScanAttemptAsync(
         Guid sessionId, 
         string studentId, 
         string token,
@@ -328,5 +328,6 @@ public class AttendanceService : IAttendanceService
 
         _context.ScanLogs.Add(scanLog);
         // Note: SaveChanges is called by the parent method
+        return Task.CompletedTask;
     }
 }

@@ -8,6 +8,7 @@ import ProtectedRoute from './components/Layout/Layout';
 import { Login } from './pages/auth/Login';
 import { InstructorDashboard } from './pages/instructor/Dashboard';
 import { LiveSession } from './pages/instructor/LiveSession';
+import { SessionHistory } from './pages/instructor/SessionHistory';
 import { StudentHome } from './pages/student/StudentHome';
 import { ScanPage } from './pages/student/ScanPage';
 import { JoinCourse } from './pages/student/JoinCourse';
@@ -42,6 +43,7 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={['Instructor', 'Admin']} />}>
                 <Route path="/instructor" element={<InstructorDashboard />} />
                 <Route path="/instructor/session/:sessionId" element={<LiveSession />} />
+                <Route path="/instructor/course/:courseId/history" element={<SessionHistory />} />
               </Route>
 
               {/* Student Routes */}

@@ -161,6 +161,30 @@ public class SessionController : ControllerBase
     }
 
     /// <summary>
+    /// Gets historical sessions for a course (instructor only).
+    /// </summary>
+    [HttpGet("course/{courseId:guid}/history")]
+    [ProducesResponseType(typeof(List<SessionResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<SessionResponse>>> GetCourseSessionsHistory(Guid courseId)
+    {
+        try
+        {
+            var sessions = await _sessionService.GetCourseSessionsForInstructorAsync(courseId, UserId);
+            return Ok(sessions);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Gets all active sessions for the current instructor.
     /// </summary>
     [HttpGet("active")]
