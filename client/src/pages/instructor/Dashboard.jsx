@@ -3,12 +3,17 @@ import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { Plus, Users, ArrowRight, Play, LinkIcon } from 'lucide-react';
 import { CreateCourseModal } from '../../components/Instructor/CreateCourseModal';
+import StudentsModal from '../../components/Instructor/StudentsModal';
 
 export const InstructorDashboard = () => {
     const [courses, setCourses] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isStudentsOpen, setIsStudentsOpen] = useState(false);
+    const [students, setStudents] = useState([]);
+    const [studentsLoading, setStudentsLoading] = useState(false);
+    const [selectedCourse, setSelectedCourse] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -58,6 +63,21 @@ export const InstructorDashboard = () => {
         setCourses([...courses, newCourse]);
     };
 
+    const openStudents = async (course) => {
+        setSelectedCourse(course);
+        setIsStudentsOpen(true);
+        setStudentsLoading(true);
+        try {
+            const res = await api.get(`/Course/${course.id}/students`);
+            setStudents(res.data || []);
+        } catch (err) {
+            console.error('Failed to fetch students:', err);
+            setStudents([]);
+        } finally {
+            setStudentsLoading(false);
+        }
+    };
+
     if (loading) return <div>Loading...</div>;
 
     return (
@@ -66,6 +86,13 @@ export const InstructorDashboard = () => {
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 onCourseCreated={handleCourseCreated}
+            />
+            <StudentsModal
+                isOpen={isStudentsOpen}
+                onClose={() => setIsStudentsOpen(false)}
+                students={students}
+                loading={studentsLoading}
+                course={selectedCourse}
             />
 
             {/* Active Sessions Section */}
@@ -141,6 +168,14 @@ export const InstructorDashboard = () => {
                                         <div className="text-sm text-gray-500 hidden sm:block">
                                             {course.enrolledStudentCount} Students
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => openStudents(course)}
+                                            className="inline-flex items-center px-3 py-1.5 border text-xs font-medium rounded-full text-indigo-700 bg-white hover:bg-gray-50 focus:outline-none mr-2"
+                                        >
+                                            <Users className="h-3 w-3 mr-1 text-indigo-600" />
+                                            Students
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => copyEnrollLink(course.id)}
