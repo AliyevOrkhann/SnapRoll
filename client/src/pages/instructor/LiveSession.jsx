@@ -14,6 +14,8 @@ export const LiveSession = () => {
     const [stats, setStats] = useState({ presentCount: 0, lateCount: 0, absentCount: 0, pendingCount: 0 });
     const [qrPayload, setQrPayload] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [enrolledStudents, setEnrolledStudents] = useState([]);
+    const [attendanceRecords, setAttendanceRecords] = useState([]);
     const streamRef = useRef(null);
 
     // 1. Initial Data Fetch
@@ -42,6 +44,8 @@ export const LiveSession = () => {
         // A. Listen for attendance updates
         const handleAttendanceUpdate = (updatedStats) => {
             setStats(updatedStats);
+            // Refresh detailed attendance list when SignalR notifies about updates
+            fetchAttendanceRecords();
         };
 
         // B. Handle session closed event
@@ -83,6 +87,41 @@ export const LiveSession = () => {
             }
         };
     }, [sessionId, connection, isConnected, navigate]);
+
+    // Fetch enrolled students and attendance details for this session
+    const fetchEnrollmentAndAttendance = async () => {
+        if (!session) return;
+        try {
+            const [studentsRes, attendanceRes] = await Promise.all([
+                api.get(`/Course/${session.courseId}/students`),
+                api.get(`/Dashboard/${session.id}/attendance`)
+            ]);
+
+            setEnrolledStudents(studentsRes.data || []);
+            setAttendanceRecords(attendanceRes.data || []);
+        } catch (err) {
+            console.error('Failed to fetch enrolled students or attendance', err);
+        }
+    };
+
+    const fetchAttendanceRecords = async () => {
+        if (!session) return;
+        try {
+            const res = await api.get(`/Dashboard/${session.id}/attendance`);
+            setAttendanceRecords(res.data || []);
+        } catch (err) {
+            console.error('Failed to fetch attendance records', err);
+        }
+    };
+
+    useEffect(() => {
+        if (!session) return;
+        fetchEnrollmentAndAttendance();
+    }, [session]);
+
+    const presentSet = new Set((attendanceRecords || []).map(a => a.studentId));
+    const presentStudents = (enrolledStudents || []).filter(s => presentSet.has(s.id));
+    const absentStudents = (enrolledStudents || []).filter(s => !presentSet.has(s.id));
 
     const closeSession = async () => {
         if (!window.confirm('Are you sure you want to close this session? Students will no longer be able to scan.')) return;
@@ -167,6 +206,37 @@ export const LiveSession = () => {
                         <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                             <span className="text-gray-600">Pending</span>
                             <span className="font-bold text-gray-900">{stats.pendingCount}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Students List Card */}
+                <div className="bg-white rounded-2xl shadow-sm p-6">
+                    <h4 className="text-md font-semibold text-gray-700 mb-4">Students</h4>
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <h5 className="text-sm font-medium text-green-600 mb-2">Present ({presentStudents.length})</h5>
+                            <ul className="max-h-40 overflow-auto divide-y divide-gray-100">
+                                {presentStudents.map(student => (
+                                    <li key={student.id} className="py-2 flex justify-between items-center">
+                                        <span className="text-sm font-medium">{student.fullName}</span>
+                                        <span className="text-xs text-gray-500">{student.universityId}</span>
+                                    </li>
+                                ))}
+                                {presentStudents.length === 0 && <li className="py-2 text-xs text-gray-400">No students present yet.</li>}
+                            </ul>
+                        </div>
+                        <div className="flex-1">
+                            <h5 className="text-sm font-medium text-red-600 mb-2">Absent ({absentStudents.length})</h5>
+                            <ul className="max-h-40 overflow-auto divide-y divide-gray-100">
+                                {absentStudents.map(student => (
+                                    <li key={student.id} className="py-2 flex justify-between items-center">
+                                        <span className="text-sm">{student.fullName}</span>
+                                        <span className="text-xs text-gray-500">{student.universityId}</span>
+                                    </li>
+                                ))}
+                                {absentStudents.length === 0 && <li className="py-2 text-xs text-gray-400">No absent students.</li>}
+                            </ul>
                         </div>
                     </div>
                 </div>
