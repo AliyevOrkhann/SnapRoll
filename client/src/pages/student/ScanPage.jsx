@@ -1,121 +1,142 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, MapPin, Loader2 } from 'lucide-react';
 
 export const ScanPage = () => {
     const [scanResult, setScanResult] = useState(null); // { success: boolean, message: string }
+    const [permissionStatus, setPermissionStatus] = useState('pending'); // 'pending' | 'granted' | 'denied' | 'unsupported'
+    const [coords, setCoords] = useState(null); // { latitude, longitude }
     const [scanning, setScanning] = useState(true);
+
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const scannerRef = useRef(null);
 
-    // Using a ref to hold the scanner instance if needed to clear it manually, 
-    // but the library handles clearing usually via 'clear()' method.
-
+    // 1. Request Location on Mount
     useEffect(() => {
+        if (!navigator.geolocation) {
+            setPermissionStatus('unsupported');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setCoords({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                });
+                setPermissionStatus('granted');
+            },
+            (error) => {
+                console.error("Location error:", error);
+                setPermissionStatus('denied');
+            },
+            { enableHighAccuracy: true }
+        );
+    }, []);
+
+    // 2. Initialize Scanner ONLY when location is granted
+    useEffect(() => {
+        if (permissionStatus !== 'granted' || !scanning || scanResult) return;
+
         const scannerId = "reader";
-        let html5QrcodeScanner;
 
         const onScanSuccess = async (decodedText, decodedResult) => {
             if (!decodedText) return;
 
-            // Stop scanning immediately
-            html5QrcodeScanner.clear();
+            // Stop scanning logic
+            if (scannerRef.current) {
+                scannerRef.current.clear().catch(err => console.error("Failed to clear", err));
+            }
             setScanning(false);
 
             try {
-                // Parse the QR payload
+                // Parse Payload
                 let payload;
                 try {
                     payload = JSON.parse(decodedText);
-                } catch (parseErr) {
-                    console.error("QR Parse Error - Raw data:", decodedText);
-                    setScanResult({ success: false, message: 'QR code data is not valid JSON' });
+                } catch (e) {
+                    setScanResult({ success: false, message: 'Invalid QR Code Format' });
                     return;
                 }
 
-                // Validate required fields exist
                 if (!payload.sessionId || !payload.token) {
-                    console.error("QR Missing Fields - Payload:", payload);
-                    setScanResult({ success: false, message: 'QR code missing sessionId or token' });
+                    setScanResult({ success: false, message: 'Invalid QR Code Data' });
                     return;
                 }
 
-                console.log("Sending scan request:", { sessionId: payload.sessionId, token: payload.token?.substring(0, 50) + '...' });
-
-                // Request location before sending
-                if (!navigator.geolocation) {
-                    setScanResult({ success: false, message: 'Geolocation is not supported by this browser.' });
+                if (!coords) {
+                    // Should not happen if logic is correct, but safety check
+                    setScanResult({ success: false, message: 'Location data is missing. Please refresh.' });
                     return;
                 }
 
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        try {
-                            // Send to API (backend uses camelCase JSON properties)
-                            await api.post('/Attendance/scan', {
-                                sessionId: payload.sessionId,
-                                token: payload.token,
-                                deviceMetadata: navigator.userAgent,
-                                latitude: position.coords.latitude,
-                                longitude: position.coords.longitude
-                            });
+                // Send to API
+                await api.post('/Attendance/scan', {
+                    sessionId: payload.sessionId,
+                    token: payload.token,
+                    deviceMetadata: navigator.userAgent,
+                    latitude: coords.latitude,
+                    longitude: coords.longitude
+                });
 
-                            setScanResult({ success: true, message: 'Attendance Marked Successfully!' });
-
-                            // Auto redirect after success
-                            setTimeout(() => navigate('/student'), 3000);
-                        } catch (err) {
-                            console.error("Scan API Error:", err);
-                            console.error("Response data:", err.response?.data);
-                            const msg = err.response?.data?.message || err.response?.data || 'Invalid QR Code or Scan Failed';
-                            setScanResult({ success: false, message: typeof msg === 'string' ? msg : JSON.stringify(msg) });
-                        }
-                    },
-                    (error) => {
-                        console.error("Location error:", error);
-                        setScanResult({ success: false, message: 'Location permission required to mark attendance.' });
-                    }
-                );
+                setScanResult({ success: true, message: 'Attendance Marked Successfully!' });
+                setTimeout(() => navigate('/student'), 3000);
 
             } catch (err) {
                 console.error("Scan API Error:", err);
-                console.error("Response data:", err.response?.data);
-                const msg = err.response?.data?.message || err.response?.data || 'Invalid QR Code or Scan Failed';
+                const msg = err.response?.data?.message || 'Scan Failed';
                 setScanResult({ success: false, message: typeof msg === 'string' ? msg : JSON.stringify(msg) });
             }
         };
 
         const onScanFailure = (error) => {
-            // console.warn(`Code scan error = ${error}`);
+            // console.warn(error);
         };
 
-        if (scanning) {
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                scannerId,
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-                    videoConstraints: {
-                        facingMode: { exact: "environment" }
-                    }
-                },
-                false
-            );
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-        }
+        const scanner = new Html5QrcodeScanner(
+            scannerId,
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                videoConstraints: {
+                    facingMode: { exact: "environment" }
+                }
+            },
+            false
+        );
+
+        scanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = scanner;
 
         return () => {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear().catch(error => {
-                    console.error("Failed to clear html5QrcodeScanner. ", error);
-                });
+            if (scannerRef.current) {
+                scannerRef.current.clear().catch(e => console.error("Cleanup error", e));
             }
         };
-    }, [scanning, navigate]);
+    }, [permissionStatus, scanning, coords, navigate, scanResult]);
+
+    // Retry Location Handler
+    const handleRetryLocation = () => {
+        setPermissionStatus('pending');
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setCoords({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                });
+                setPermissionStatus('granted');
+            },
+            (error) => {
+                console.error("Location error:", error);
+                setPermissionStatus('denied');
+            },
+            { enableHighAccuracy: true }
+        );
+    };
 
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 relative">
@@ -126,43 +147,80 @@ export const ScanPage = () => {
                 <ArrowLeft className="h-6 w-6" />
             </button>
 
-            {scanning ? (
-                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl">
-                    <div className="p-4 bg-gray-900 text-white text-center font-medium">
-                        Scan Class QR Code
-                    </div>
-                    <div id="reader" className="w-full"></div>
-                    <div className="p-6 text-center text-gray-500 text-sm">
-                        Align the QR code within the frame to mark your attendance.
-                    </div>
+            {/* CASE 1: Location Pending */}
+            {permissionStatus === 'pending' && (
+                <div className="text-white text-center">
+                    <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-indigo-500" />
+                    <h2 className="text-xl font-semibold">Requesting Location</h2>
+                    <p className="text-gray-400 mt-2">Please allow location access to mark attendance.</p>
                 </div>
-            ) : (
-                <div className="w-full max-w-md bg-white rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl animate-fade-in-up">
-                    {scanResult?.success ? (
-                        <>
-                            <div className="h-24 w-24 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                                <Check className="h-12 w-12 text-green-600" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">You're In!</h2>
-                            <p className="text-gray-500">{scanResult.message}</p>
-                            <p className="text-sm text-gray-400 mt-4">Redirecting...</p>
-                        </>
+            )}
+
+            {/* CASE 2: Location Denied/Unsupported */}
+            {(permissionStatus === 'denied' || permissionStatus === 'unsupported') && (
+                <div className="w-full max-w-md bg-white rounded-3xl p-8 flex flex-col items-center text-center shadow-xl">
+                    <div className="h-20 w-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                        <MapPin className="h-10 w-10 text-red-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Location Required</h2>
+                    <p className="text-gray-500 mb-6">
+                        We need your location to verify you are in the classroom. Please enable location services.
+                    </p>
+                    <button
+                        onClick={handleRetryLocation}
+                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            )}
+
+            {/* CASE 3: Location Granted (Scanning or Result) */}
+            {permissionStatus === 'granted' && (
+                <>
+                    {scanResult ? (
+                        <div className="w-full max-w-md bg-white rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl animate-fade-in-up">
+                            {scanResult.success ? (
+                                <>
+                                    <div className="h-24 w-24 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                                        <Check className="h-12 w-12 text-green-600" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">You're In!</h2>
+                                    <p className="text-gray-500">{scanResult.message}</p>
+                                    <p className="text-sm text-gray-400 mt-4">Redirecting...</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="h-24 w-24 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                                        <AlertCircle className="h-12 w-12 text-red-600" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Scan Failed</h2>
+                                    <p className="text-red-500 font-medium">{scanResult.message}</p>
+                                    <button
+                                        onClick={() => {
+                                            setScanResult(null);
+                                            setScanning(true);
+                                        }}
+                                        className="mt-8 w-full py-3 bg-indigo-600 text-white rounded-xl font-medium"
+                                    >
+                                        Try Again
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     ) : (
-                        <>
-                            <div className="h-24 w-24 bg-red-100 rounded-full flex items-center justify-center mb-6">
-                                <AlertCircle className="h-12 w-12 text-red-600" />
+                        <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl">
+                            <div className="p-4 bg-gray-900 text-white text-center font-medium flex items-center justify-center gap-2">
+                                <MapPin className="h-4 w-4 text-green-400" />
+                                <span>Location Verified</span>
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Scan Failed</h2>
-                            <p className="text-red-500 font-medium">{scanResult?.message}</p>
-                            <button
-                                onClick={() => setScanning(true)}
-                                className="mt-8 w-full py-3 bg-indigo-600 text-white rounded-xl font-medium"
-                            >
-                                Try Again
-                            </button>
-                        </>
+                            <div id="reader" className="w-full bg-black min-h-[300px]"></div>
+                            <div className="p-6 text-center text-gray-500 text-sm">
+                                Align the QR code within the frame.
+                            </div>
+                        </div>
                     )}
-                </div>
+                </>
             )}
         </div>
     );
