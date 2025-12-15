@@ -52,9 +52,9 @@ public class SessionService : ISessionService
             StartTime = now,
             IsActive = true,
             LateThresholdSeconds = request.LateThresholdSeconds ?? 60,
-            Latitude = request.Latitude,
-            Longitude = request.Longitude,
-            MaxDistanceMeters = request.MaxDistanceMeters ?? 50
+            Latitude = null,
+            Longitude = null,
+            MaxDistanceMeters = 0
         };
 
         _context.Sessions.Add(session);

@@ -36,41 +36,21 @@ export const InstructorDashboard = () => {
         fetchData();
     }, []);
 
-    const startSession = (courseId) => {
-        if (!navigator.geolocation) {
+    const startSession = async (courseId) => {
+        try {
+            const response = await api.post('/Session/create', {
+                courseId,
+                latitude: null,
+                longitude: null
+            });
+            window.location.href = `/instructor/session/${response.data.id}`;
+        } catch (err) {
             setNotification({
                 show: true,
-                message: "Geolocation is not supported by your browser.",
+                message: err.response?.data?.message || 'Failed to start session',
                 type: 'error'
             });
-            return;
         }
-
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                try {
-                    const response = await api.post('/Session/create', {
-                        courseId,
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    });
-                    window.location.href = `/instructor/session/${response.data.id}`;
-                } catch (err) {
-                    setNotification({
-                        show: true,
-                        message: err.response?.data?.message || 'Failed to start session',
-                        type: 'error'
-                    });
-                }
-            },
-            (error) => {
-                setNotification({
-                    show: true,
-                    message: "Location permission is required to start a session. Please allow location access.",
-                    type: 'error'
-                });
-            }
-        );
     };
 
     const copyEnrollLink = (courseId) => {

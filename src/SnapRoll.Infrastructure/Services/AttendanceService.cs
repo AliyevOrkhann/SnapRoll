@@ -92,41 +92,8 @@ public class AttendanceService : IAttendanceService
             };
         }
 
-        // --- GEOFENCING CHECK ---
-        if (session.Latitude.HasValue && session.Longitude.HasValue)
-        {
-            if (!request.Latitude.HasValue || !request.Longitude.HasValue)
-            {
-                await LogScanAttemptAsync(request.SessionId, studentId, request.Token,
-                    ScanResult.LocationRequired, request.DeviceMetadata, ipAddress, "Location required");
-                await _context.SaveChangesAsync();
-
-                return new ScanResponse
-                {
-                    Success = false,
-                    Result = ScanResult.LocationRequired,
-                    Message = "Location permission is required for this session."
-                };
-            }
-
-            double distance = CalculateDistance(
-                session.Latitude.Value, session.Longitude.Value,
-                request.Latitude.Value, request.Longitude.Value);
-
-            if (distance > session.MaxDistanceMeters)
-            {
-                await LogScanAttemptAsync(request.SessionId, studentId, request.Token,
-                    ScanResult.LocationInvalid, request.DeviceMetadata, ipAddress, $"Too far: {distance:F1}m > {session.MaxDistanceMeters}m");
-                await _context.SaveChangesAsync();
-
-                return new ScanResponse
-                {
-                    Success = false,
-                    Result = ScanResult.LocationInvalid,
-                    Message = $"You are too far from the classroom."
-                };
-            }
-        }
+        // --- GEOFENCING REMOVED ---
+        // Location check has been disabled as per requirements.
 
         // Validate the QR token
         var tokenValidation = _qrEngine.ValidateToken(request.Token, request.SessionId);
