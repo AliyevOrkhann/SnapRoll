@@ -1,14 +1,15 @@
-using System.Net;
-using System.Net.Mail;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SnapRoll.Application.Configuration;
 using SnapRoll.Application.Interfaces;
+using MimeKit;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 
 namespace SnapRoll.Infrastructure.Services;
 
 /// <summary>
-/// SMTP-based email service implementation.
+/// SMTP-based email service implementation using MailKit.
 /// </summary>
 public class SmtpEmailService : IEmailService
 {
@@ -28,22 +29,32 @@ public class SmtpEmailService : IEmailService
     {
         try
         {
-            using var client = new SmtpClient(_settings.Host, _settings.Port)
-            {
-                Credentials = new NetworkCredential(_settings.Username, _settings.Password),
-                EnableSsl = _settings.EnableSsl
-            };
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(_settings.FromName, _settings.FromEmail));
+            message.To.Add(new MailboxAddress("", to));
+            message.Subject = subject;
 
-            var mailMessage = new MailMessage
+            var bodyBuilder = new BodyBuilder
             {
-                From = new MailAddress(_settings.FromEmail, _settings.FromName),
-                Subject = subject,
-                Body = body,
-                IsBodyHtml = true
+                HtmlBody = body
             };
-            mailMessage.To.Add(to);
+            message.Body = bodyBuilder.ToMessageBody();
 
-            await client.SendMailAsync(mailMessage);
+            using var client = new SmtpClient();
+            
+            // Accept all SSL certificates (in case of self-signed servers or proxy issues, though Brevo should be fine)
+            // client.ServerCertificateValidationCallback = (s, c, h, e) => true; 
+            
+            // Connect to the server
+            // We use Auto which tries to negotiate the best options
+            await client.ConnectAsync(_settings.Host, _settings.Port, SecureSocketOptions.StartTls);
+
+            // Authenticate
+            await client.AuthenticateAsync(_settings.Username, _settings.Password);
+
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+            
             _logger.LogInformation("Email sent successfully to {To}", to);
         }
         catch (Exception ex)
