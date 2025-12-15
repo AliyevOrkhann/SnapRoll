@@ -38,17 +38,20 @@ export const ScanPage = () => {
     }, []);
 
     // 2. Initialize Scanner ONLY when location is granted
+    // 2. Initialize Scanner ONLY when location is granted
     useEffect(() => {
         if (permissionStatus !== 'granted' || !scanning || scanResult) return;
 
         const scannerId = "reader";
+        let scannerInst = null;
+        let timerId = null;
 
         const onScanSuccess = async (decodedText, decodedResult) => {
             if (!decodedText) return;
 
             // Stop scanning logic
-            if (scannerRef.current) {
-                scannerRef.current.clear().catch(err => console.error("Failed to clear", err));
+            if (scannerInst) {
+                scannerInst.clear().catch(err => console.error("Failed to clear", err));
             }
             setScanning(false);
 
@@ -90,25 +93,41 @@ export const ScanPage = () => {
             // console.warn(error);
         };
 
-        const scanner = new Html5QrcodeScanner(
-            scannerId,
-            {
-                fps: 10,
-                qrbox: { width: 250, height: 250 },
-                formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-                videoConstraints: {
-                    facingMode: "environment"
-                }
-            },
-            false
-        );
+        // Initialize with a small delay to prevent race conditions on mobile (React StrictMode)
+        const initScanner = () => {
+            try {
+                // Double check if element exists
+                const element = document.getElementById(scannerId);
+                if (!element) return;
+                element.innerHTML = ""; // Clear any existing scanner cleanup residue
 
-        scanner.render(onScanSuccess, onScanFailure);
-        scannerRef.current = scanner;
+                const scanner = new Html5QrcodeScanner(
+                    scannerId,
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 },
+                        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                        videoConstraints: {
+                            facingMode: "environment"
+                        }
+                    },
+                    false
+                );
+
+                scanner.render(onScanSuccess, onScanFailure);
+                scannerInst = scanner;
+                scannerRef.current = scanner;
+            } catch (e) {
+                console.error("Scanner Initialization Error", e);
+            }
+        };
+
+        timerId = setTimeout(initScanner, 500);
 
         return () => {
-            if (scannerRef.current) {
-                scannerRef.current.clear().catch(e => console.error("Cleanup error", e));
+            clearTimeout(timerId);
+            if (scannerInst) {
+                scannerInst.clear().catch(e => console.error("Cleanup error", e));
             }
         };
     }, [permissionStatus, scanning, coords, navigate, scanResult]);
