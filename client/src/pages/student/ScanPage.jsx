@@ -67,19 +67,13 @@ export const ScanPage = () => {
                     return;
                 }
 
-                if (!coords) {
-                    // Should not happen if logic is correct, but safety check
-                    setScanResult({ success: false, message: 'Location data is missing. Please refresh.' });
-                    return;
-                }
-
                 // Send to API
                 await api.post('/Attendance/scan', {
                     sessionId: payload.sessionId,
                     token: payload.token,
                     deviceMetadata: navigator.userAgent,
-                    latitude: coords.latitude,
-                    longitude: coords.longitude
+                    latitude: coords?.latitude || null,
+                    longitude: coords?.longitude || null
                 });
 
                 setScanResult({ success: true, message: 'Attendance Marked Successfully!' });
@@ -152,7 +146,16 @@ export const ScanPage = () => {
                 <div className="text-white text-center">
                     <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-indigo-500" />
                     <h2 className="text-xl font-semibold">Requesting Location</h2>
-                    <p className="text-gray-400 mt-2">Please allow location access to mark attendance.</p>
+                    <p className="text-gray-400 mt-2 mb-4">Please allow location access to mark attendance.</p>
+                    <button
+                        onClick={() => {
+                            setCoords(null);
+                            setPermissionStatus('granted');
+                        }}
+                        className="text-sm text-gray-500 hover:text-white underline"
+                    >
+                        Continue without location
+                    </button>
                 </div>
             )}
 
@@ -164,14 +167,25 @@ export const ScanPage = () => {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Location Required</h2>
                     <p className="text-gray-500 mb-6">
-                        We need your location to verify you are in the classroom. Please enable location services.
+                        We need your location to verify you are in the classroom. Only continue if your instructor has disabled location checks.
                     </p>
-                    <button
-                        onClick={handleRetryLocation}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
-                    >
-                        Try Again
-                    </button>
+                    <div className="flex flex-col gap-3 w-full">
+                        <button
+                            onClick={handleRetryLocation}
+                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
+                        >
+                            Try Again
+                        </button>
+                        <button
+                            onClick={() => {
+                                setCoords(null);
+                                setPermissionStatus('granted');
+                            }}
+                            className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition"
+                        >
+                            Continue without Location
+                        </button>
+                    </div>
                 </div>
             )}
 
