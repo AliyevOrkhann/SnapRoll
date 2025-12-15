@@ -10,38 +10,18 @@ SnapRoll is a real-time attendance tracking system for classrooms. Instructors c
 - **Infrastructure**: `SnapRoll.Infrastructure` (EF Core, database access, services)
 - **Frontend**: React + Vite + Tailwind CSS (`client`)
 
+- **PostgreSQL** instance (local or remote)
+
 ### Features
 
-- **Authentication**: Instructor / student login.
-- **Courses & sessions**: Instructors manage courses and start live sessions.
-- **QR-based attendance**: Students scan a QR code to join a session.
-- **Real-time updates**: SignalR hub broadcasts session and attendance updates to connected clients.
-- **Dashboards**: Instructors see session and attendance information.
-
----
-
-## Project structure
-
-```text
-SnapRoll.sln
-src/
-  SnapRoll.Domain/
-  SnapRoll.Application/
-  SnapRoll.Infrastructure/
-  SnapRoll.API/
-client/
-  src/
-  public/
-  package.json
-```
-
-- **`SnapRoll.Domain`**: Core entities like `AppUser`, `Course`, `Session`, `AttendanceRecord`, etc.
-- **`SnapRoll.Application`**: DTOs, configuration classes (`JwtSettings`, `QrSettings`) and service interfaces.
-- **`SnapRoll.Infrastructure`**: EF Core `SnapRollDbContext`, migrations, and service implementations.
-- **`SnapRoll.API`**: ASP.NET Core host with controllers (auth, courses, sessions, attendance, dashboard) and SignalR hub.
-- **`client`**: React SPA with pages for instructor dashboard/live session and student join/scan flows.
-
----
+- **Authentication**: Secure Instructor / Student login.
+- **Courses & Sessions**: Instructors manage courses and live sessions.
+- **Secure QR Attendance**: 
+  - Dynamic rotational QR codes (updates every 2s).
+  - Strict 4-second validity window to prevent code sharing.
+  - **Privacy First**: No GPS location tracking required.
+- **Real-time Updates**: SignalR hub broadcasts instant attendance stats.
+- **Dashboards**: Live analytics for instructors.
 
 ## Prerequisites
 
