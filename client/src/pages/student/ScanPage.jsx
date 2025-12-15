@@ -8,6 +8,8 @@ import { ArrowLeft, Check, AlertCircle, MapPin, Loader2 } from 'lucide-react';
 export const ScanPage = () => {
     const [scanResult, setScanResult] = useState(null); // { success: boolean, message: string }
     const [permissionStatus, setPermissionStatus] = useState('pending'); // 'pending' | 'granted' | 'denied' | 'unsupported'
+    const [cameraStatus, setCameraStatus] = useState('pending'); // 'pending' | 'granted' | 'denied' | 'error'
+    const [cameraError, setCameraError] = useState(null);
     const [coords, setCoords] = useState(null); // { latitude, longitude }
     const [scanning, setScanning] = useState(true);
 
@@ -37,10 +39,51 @@ export const ScanPage = () => {
         );
     }, []);
 
-    // 2. Initialize Scanner ONLY when location is granted
-    // 2. Initialize Scanner ONLY when location is granted
+    // 2. Request Camera Permission when location is ready
     useEffect(() => {
-        if (permissionStatus !== 'granted' || !scanning || scanResult) return;
+        if (permissionStatus !== 'granted') return;
+
+        const requestCameraPermission = async () => {
+            try {
+                // Check if mediaDevices is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    setCameraStatus('error');
+                    setCameraError('Camera not supported on this device/browser');
+                    return;
+                }
+
+                // Request camera permission explicitly
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                
+                // Permission granted - stop the stream immediately (scanner will request again)
+                stream.getTracks().forEach(track => track.stop());
+                setCameraStatus('granted');
+            } catch (err) {
+                console.error("Camera permission error:", err);
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    setCameraStatus('denied');
+                    setCameraError('Camera access was denied. Please allow camera access in your browser settings.');
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    setCameraStatus('error');
+                    setCameraError('No camera found on this device.');
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    setCameraStatus('error');
+                    setCameraError('Camera is in use by another application.');
+                } else {
+                    setCameraStatus('error');
+                    setCameraError(err.message || 'Failed to access camera');
+                }
+            }
+        };
+
+        requestCameraPermission();
+    }, [permissionStatus]);
+
+    // 3. Initialize Scanner ONLY when location AND camera are granted
+    useEffect(() => {
+        if (permissionStatus !== 'granted' || cameraStatus !== 'granted' || !scanning || scanResult) return;
 
         const scannerId = "reader";
         let scannerInst = null;
@@ -130,7 +173,7 @@ export const ScanPage = () => {
                 scannerInst.clear().catch(e => console.error("Cleanup error", e));
             }
         };
-    }, [permissionStatus, scanning, coords, navigate, scanResult]);
+    }, [permissionStatus, cameraStatus, scanning, coords, navigate, scanResult]);
 
     // Retry Location Handler
     const handleRetryLocation = () => {
@@ -149,6 +192,28 @@ export const ScanPage = () => {
             },
             { enableHighAccuracy: true }
         );
+    };
+
+    // Retry Camera Handler
+    const handleRetryCamera = async () => {
+        setCameraStatus('pending');
+        setCameraError(null);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment' } 
+            });
+            stream.getTracks().forEach(track => track.stop());
+            setCameraStatus('granted');
+        } catch (err) {
+            console.error("Camera permission error:", err);
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                setCameraStatus('denied');
+                setCameraError('Camera access was denied. Please allow camera access in your browser settings.');
+            } else {
+                setCameraStatus('error');
+                setCameraError(err.message || 'Failed to access camera');
+            }
+        }
     };
 
     return (
@@ -208,8 +273,39 @@ export const ScanPage = () => {
                 </div>
             )}
 
-            {/* CASE 3: Location Granted (Scanning or Result) */}
-            {permissionStatus === 'granted' && (
+            {/* CASE 3: Location Granted - Check Camera Permission */}
+            {permissionStatus === 'granted' && cameraStatus === 'pending' && (
+                <div className="text-white text-center">
+                    <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-indigo-500" />
+                    <h2 className="text-xl font-semibold">Requesting Camera Access</h2>
+                    <p className="text-gray-400 mt-2">Please allow camera access to scan QR codes.</p>
+                </div>
+            )}
+
+            {/* CASE 4: Camera Denied/Error */}
+            {permissionStatus === 'granted' && (cameraStatus === 'denied' || cameraStatus === 'error') && (
+                <div className="w-full max-w-md bg-white rounded-3xl p-8 flex flex-col items-center text-center shadow-xl">
+                    <div className="h-20 w-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                        <AlertCircle className="h-10 w-10 text-red-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Camera Access Required</h2>
+                    <p className="text-gray-500 mb-4">
+                        {cameraError || 'We need camera access to scan QR codes for attendance.'}
+                    </p>
+                    <p className="text-sm text-gray-400 mb-6">
+                        On mobile: Check your browser settings or try opening in a different browser.
+                    </p>
+                    <button
+                        onClick={handleRetryCamera}
+                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            )}
+
+            {/* CASE 5: Location AND Camera Granted (Scanning or Result) */}
+            {permissionStatus === 'granted' && cameraStatus === 'granted' && (
                 <>
                     {scanResult ? (
                         <div className="w-full max-w-md bg-white rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl animate-fade-in-up">
