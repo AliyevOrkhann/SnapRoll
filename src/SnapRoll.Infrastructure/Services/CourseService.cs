@@ -4,6 +4,7 @@ using SnapRoll.Application.Interfaces;
 using SnapRoll.Domain.Entities;
 using SnapRoll.Domain.Enums;
 using SnapRoll.Infrastructure.Data;
+using Microsoft.AspNetCore.Identity;
 
 namespace SnapRoll.Infrastructure.Services;
 
@@ -13,11 +14,13 @@ namespace SnapRoll.Infrastructure.Services;
 public class CourseService : ICourseService
 {
     private readonly SnapRollDbContext _context;
+    private readonly UserManager<AppUser> _userManager;
 
-    public CourseService(SnapRollDbContext context)
+    public CourseService(SnapRollDbContext context, UserManager<AppUser> userManager)
     {
         _context = context;
-    }
+        _userManager = userManager;
+    }   
 
     /// <summary>
     /// Creates a new course.
@@ -231,4 +234,58 @@ public class CourseService : ICourseService
             CreatedAt = course.CreatedAt
         };
     }
+    public async Task AddStudentByEmailAsync(
+    Guid courseId,
+    string studentEmail,
+    string instructorId)
+{
+    // 1. Verify course exists and belongs to instructor
+    var course = await _context.Courses
+        .FirstOrDefaultAsync(c => c.Id == courseId && c.InstructorId == instructorId);
+
+    if (course == null)
+        throw new InvalidOperationException("Course not found or access denied.");
+
+    // 2. Find student by email
+    var student = await _userManager.FindByEmailAsync(studentEmail);
+
+    if (student == null)
+        throw new InvalidOperationException("No student found with this email.");
+
+    // 3. Check user type
+    if (student.UserType != UserType.Student)
+        throw new InvalidOperationException("User is not a student.");
+
+    // 4. Check existing enrollment
+    var existingEnrollment = await _context.CourseEnrollments
+        .FirstOrDefaultAsync(e =>
+            e.CourseId == courseId &&
+            e.StudentId == student.Id);
+
+    if (existingEnrollment != null)
+    {
+        if (existingEnrollment.IsActive)
+            throw new InvalidOperationException("Student already enrolled.");
+
+        // Reactivate enrollment
+        existingEnrollment.IsActive = true;
+        existingEnrollment.EnrolledAt = DateTime.UtcNow;
+    }
+    else
+    {
+        // 5. Create enrollment
+        var enrollment = new CourseEnrollment
+        {
+            Id = Guid.NewGuid(),
+            CourseId = courseId,
+            StudentId = student.Id,
+            EnrolledAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        _context.CourseEnrollments.Add(enrollment);
+    }
+
+    await _context.SaveChangesAsync();
+}
 }

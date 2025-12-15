@@ -191,4 +191,22 @@ public class CourseController : ControllerBase
         var sessions = await _sessionService.GetCourseSessionsAsync(courseId);
         return Ok(sessions);
     }
+
+    [Authorize(Roles = "Instructor")]
+[HttpPost("add-student-by-email")]
+public async Task<IActionResult> AddStudentByEmail(
+    [FromBody] AddStudentByEmailRequest request)
+{
+    var instructorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+    if (string.IsNullOrEmpty(instructorId))
+        return Unauthorized();
+
+    await _courseService.AddStudentByEmailAsync(
+        request.CourseId,
+        request.StudentEmail,
+        instructorId);
+
+    return Ok(new { message = "Student added successfully." });
+}
 }

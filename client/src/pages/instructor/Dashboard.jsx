@@ -15,6 +15,8 @@ export const InstructorDashboard = () => {
     const [studentsLoading, setStudentsLoading] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+    const [studentEmail, setStudentEmail] = useState("");
+    const [error, setError] = useState("");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -104,6 +106,30 @@ export const InstructorDashboard = () => {
             setStudents([]);
         } finally {
             setStudentsLoading(false);
+        }
+    };
+
+    const addStudentByEmail = async () => {
+        if (!studentEmail) return;
+
+        try {
+            setLoading(true);
+            setError("");
+
+            await api.post(
+                `/Course/${courseId}/add-student-by-email`,
+                { studentEmail }
+            );
+
+            setStudentEmail("");
+            fetchStudents();
+        } catch (err) {
+            setError(
+                err.response?.data?.message ||
+                "Failed to add student"
+            );
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -234,6 +260,28 @@ export const InstructorDashboard = () => {
                     </ul>
                 </div>
             </section>
+
+            <div className="flex gap-2 mb-4">
+                <input
+                    type="email"
+                    placeholder="Student email"
+                    value={studentEmail}
+                    onChange={(e) => setStudentEmail(e.target.value)}
+                    className="flex-1 border rounded-lg px-3 py-2"
+                />
+
+                <button
+                    onClick={addStudentByEmail}
+                    disabled={loading}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg"
+                >
+                    Add
+                </button>
+            </div>
+
+            {error && (
+                <p className="text-red-500 text-sm mt-1">{error}</p>
+            )}
 
             {/* Notification Modal */}
             {notification.show && (

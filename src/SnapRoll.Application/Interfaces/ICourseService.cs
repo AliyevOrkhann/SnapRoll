@@ -51,4 +51,13 @@ public interface ICourseService
     /// Gets enrolled students for a course.
     /// </summary>
     Task<List<UserDto>> GetEnrolledStudentsAsync(Guid courseId);
+
+    /// <summary>
+    /// Adds a student to a course through their email.
+    /// </summary>
+    Task AddStudentByEmailAsync(
+    Guid courseId,
+    string studentEmail,
+    string instructorId
+);
 }

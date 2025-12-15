@@ -221,7 +221,7 @@ public class AuthService : IAuthService
     {
         var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
         var encodedToken = HttpUtility.UrlEncode(token);
-        var verificationLink = $"{_smtpSettings.FrontendBaseUrl}/verify-email?userId={user.Id}&token={encodedToken}";
+        var verificationLink = $"{_smtpSettings.FrontendBaseUrl.TrimEnd('/')}/verify-email?userId={user.Id}&token={encodedToken}";
 
         var subject = "Verify your SnapRoll account";
         var body = $@"
