@@ -123,7 +123,7 @@ public class AttendanceService : IAttendanceService
                 {
                     Success = false,
                     Result = ScanResult.LocationInvalid,
-                    Message = $"You are too far from the classroom ({distance:F0}m away)."
+                    Message = $"You are too far from the classroom."
                 };
             }
         }
@@ -449,4 +449,53 @@ public class AttendanceService : IAttendanceService
     }
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180;
+
+    /// <summary>
+    /// Gets attendance history for a student in a specific course.
+    /// </summary>
+    public async Task<List<StudentAttendanceHistoryDto>> GetStudentAttendanceHistoryAsync(string studentId, Guid courseId)
+    {
+        // 1. Get all sessions for the course
+        var sessions = await _context.Sessions
+            .Where(s => s.CourseId == courseId)
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
+
+        // 2. Get all attendance records for the student in these sessions
+        var sessionIds = sessions.Select(s => s.Id).ToList();
+        var records = await _context.AttendanceRecords
+            .Where(a => sessionIds.Contains(a.SessionId) && a.StudentId == studentId)
+            .ToListAsync();
+
+        // 3. Merge data
+        var history = new List<StudentAttendanceHistoryDto>();
+
+        foreach (var session in sessions)
+        {
+            var record = records.FirstOrDefault(r => r.SessionId == session.Id);
+            
+            var status = AttendanceStatus.Pending;
+            if (record != null)
+            {
+                status = record.Status;
+            }
+            else if (!session.IsActive)
+            {
+                // If session is closed and no record exists, assume Absent 
+                // (though FinalizeSessionAttendanceAsync should have created one, this is a fallback)
+                status = AttendanceStatus.Absent;
+            }
+
+            history.Add(new StudentAttendanceHistoryDto
+            {
+                SessionId = session.Id,
+                StartTime = session.StartTime,
+                Status = status,
+                ScannedAt = record?.ScannedAt,
+                IsActive = session.IsActive
+            });
+        }
+
+        return history;
+    }
 }

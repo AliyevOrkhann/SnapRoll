@@ -64,4 +64,15 @@ public class AttendanceController : ControllerBase
 
         return Ok(result);
     }
+
+    /// <summary>
+    /// Gets attendance history for the current student in a specific course.
+    /// </summary>
+    [HttpGet("my-history/{courseId:guid}")]
+    [ProducesResponseType(typeof(List<StudentAttendanceHistoryDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<StudentAttendanceHistoryDto>>> GetMyHistory(Guid courseId)
+    {
+        var history = await _attendanceService.GetStudentAttendanceHistoryAsync(UserId, courseId);
+        return Ok(history);
+    }
 }

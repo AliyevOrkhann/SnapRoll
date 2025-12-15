@@ -48,4 +48,9 @@ public interface IAttendanceService
     /// Removes the attendance record so the student becomes pending again.
     /// </summary>
     Task UnmarkStudentAsync(Guid sessionId, string studentId, string markedBy);
+
+    /// <summary>
+    /// Gets attendance history for a student in a specific course.
+    /// </summary>
+    Task<List<StudentAttendanceHistoryDto>> GetStudentAttendanceHistoryAsync(string studentId, Guid courseId);
 }

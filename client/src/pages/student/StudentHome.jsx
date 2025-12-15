@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
-import { Calendar, CheckCircle, XCircle, Clock, ArrowRight, QrCode } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, ArrowRight, QrCode, ClipboardList } from 'lucide-react';
+import { AttendanceHistoryModal } from '../../components/Student/AttendanceHistoryModal';
 
 export const StudentHome = () => {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedCourse, setSelectedCourse] = useState(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     useEffect(() => {
         const fetchCourses = async () => {
@@ -21,10 +24,21 @@ export const StudentHome = () => {
         fetchCourses();
     }, []);
 
+    const openHistory = (course) => {
+        setSelectedCourse(course);
+        setIsHistoryOpen(true);
+    };
+
     if (loading) return <div>Loading...</div>;
 
     return (
         <div className="space-y-6">
+            <AttendanceHistoryModal
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+                course={selectedCourse}
+            />
+
             {/* Hero Section / Scan Action */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-6 text-white text-center sm:text-left sm:flex sm:items-center sm:justify-between">
                 <div>
@@ -47,7 +61,7 @@ export const StudentHome = () => {
                     <ul className="divide-y divide-gray-200">
                         {courses.map(course => (
                             <li key={course.id}>
-                                <div className="px-4 py-4 sm:px-6 hover:bg-gray-50 transition cursor-pointer">
+                                <div className="px-4 py-4 sm:px-6 hover:bg-gray-50 transition">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center">
                                             <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 font-bold">
@@ -58,17 +72,20 @@ export const StudentHome = () => {
                                                 <p className="text-base text-gray-900 font-semibold">{course.name}</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center text-sm text-gray-500">
-                                            <ArrowRight className="h-5 w-5 text-gray-300" />
-                                        </div>
                                     </div>
-                                    <div className="mt-2 sm:flex sm:justify-between">
-                                        {/* Placeholder for attendance summary if backend provided it */}
+                                    <div className="mt-4 sm:flex sm:justify-between sm:items-center">
                                         <div className="sm:flex">
                                             <p className="flex items-center text-sm text-gray-500">
                                                 Instructor: {course.instructorName}
                                             </p>
                                         </div>
+                                        <button
+                                            onClick={() => openHistory(course)}
+                                            className="mt-2 sm:mt-0 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none"
+                                        >
+                                            <ClipboardList className="mr-1.5 h-4 w-4" />
+                                            View Attendance
+                                        </button>
                                     </div>
                                 </div>
                             </li>
