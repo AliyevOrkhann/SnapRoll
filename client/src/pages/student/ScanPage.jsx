@@ -97,7 +97,7 @@ export const ScanPage = () => {
                 qrbox: { width: 250, height: 250 },
                 formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
                 videoConstraints: {
-                    facingMode: { exact: "environment" }
+                    facingMode: "environment"
                 }
             },
             false
