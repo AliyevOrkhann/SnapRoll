@@ -52,10 +52,21 @@ export const ScanPage = () => {
                     return;
                 }
 
-                // Request camera permission explicitly
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } 
-                });
+                // Request camera permission - use 'ideal' instead of exact constraint
+                // This allows fallback to front camera if back camera is not available
+                let stream;
+                try {
+                    // First try back camera (preferred for QR scanning)
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: { ideal: 'environment' } } 
+                    });
+                } catch (backCameraErr) {
+                    // If that fails, try any camera
+                    console.log("Back camera not available, trying any camera");
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: true 
+                    });
+                }
                 
                 // Permission granted - stop the stream immediately (scanner will request again)
                 stream.getTracks().forEach(track => track.stop());
@@ -71,6 +82,9 @@ export const ScanPage = () => {
                 } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
                     setCameraStatus('error');
                     setCameraError('Camera is in use by another application.');
+                } else if (err.name === 'OverconstrainedError') {
+                    setCameraStatus('error');
+                    setCameraError('Camera constraints could not be satisfied. Try a different browser.');
                 } else {
                     setCameraStatus('error');
                     setCameraError(err.message || 'Failed to access camera');
@@ -151,7 +165,7 @@ export const ScanPage = () => {
                         qrbox: { width: 250, height: 250 },
                         formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
                         videoConstraints: {
-                            facingMode: "environment"
+                            facingMode: { ideal: "environment" }
                         }
                     },
                     false
@@ -199,9 +213,16 @@ export const ScanPage = () => {
         setCameraStatus('pending');
         setCameraError(null);
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment' } 
-            });
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: { ideal: 'environment' } } 
+                });
+            } catch {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true 
+                });
+            }
             stream.getTracks().forEach(track => track.stop());
             setCameraStatus('granted');
         } catch (err) {
