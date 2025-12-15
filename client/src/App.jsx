@@ -6,6 +6,7 @@ import ProtectedRoute from './components/Layout/Layout';
 
 // Pages
 import { Login } from './pages/auth/Login';
+import { VerifyEmail } from './pages/auth/VerifyEmail';
 import { InstructorDashboard } from './pages/instructor/Dashboard';
 import { LiveSession } from './pages/instructor/LiveSession';
 import { SessionHistory } from './pages/instructor/SessionHistory';
@@ -31,6 +32,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
 
             {/* Default Redirect */}

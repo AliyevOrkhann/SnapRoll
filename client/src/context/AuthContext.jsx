@@ -20,16 +20,26 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             const response = await api.post('/Auth/login', { email, password });
-            const { token, user } = response.data;
+            const { token, user, requiresEmailVerification } = response.data;
+
+            if (requiresEmailVerification) {
+                return {
+                    success: false,
+                    requiresEmailVerification: true,
+                    message: response.data.errorMessage || 'Please verify your email before logging in.'
+                };
+            }
 
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(user));
             setUser(user);
             return { success: true };
         } catch (error) {
+            const data = error.response?.data;
             return {
                 success: false,
-                message: error.response?.data?.errorMessage || 'Login failed'
+                requiresEmailVerification: data?.requiresEmailVerification || false,
+                message: data?.errorMessage || 'Login failed'
             };
         }
     };
@@ -37,16 +47,45 @@ export const AuthProvider = ({ children }) => {
     const register = async (userData) => {
         try {
             const response = await api.post('/Auth/register', userData);
-            const { token, user } = response.data;
-
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            setUser(user);
-            return { success: true };
+            // Registration no longer returns token - user must verify email first
+            return { 
+                success: true,
+                message: response.data.message || 'Registration successful! Please check your email to verify your account.'
+            };
         } catch (error) {
             return {
                 success: false,
                 message: error.response?.data?.errorMessage || 'Registration failed'
+            };
+        }
+    };
+
+    const verifyEmail = async (userId, token) => {
+        try {
+            const response = await api.post('/Auth/verify-email', { userId, token });
+            return {
+                success: response.data.success,
+                message: response.data.message || response.data.errorMessage
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.errorMessage || 'Email verification failed'
+            };
+        }
+    };
+
+    const resendVerification = async (email) => {
+        try {
+            const response = await api.post('/Auth/resend-verification', { email });
+            return {
+                success: true,
+                message: response.data.message
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.errorMessage || 'Failed to resend verification email'
             };
         }
     };
@@ -58,7 +97,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, register, logout, loading, verifyEmail, resendVerification }}>
             {!loading && children}
         </AuthContext.Provider>
     );
