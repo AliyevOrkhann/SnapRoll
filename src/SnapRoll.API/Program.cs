@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Configuration
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<QrSettings>(builder.Configuration.GetSection(QrSettings.SectionName));
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection(SmtpSettings.SectionName));
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -104,6 +105,7 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddSingleton<IQrEngine, QrEngine>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // Controllers & SignalR
 builder.Services.AddControllers();

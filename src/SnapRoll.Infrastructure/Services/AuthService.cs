@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Web;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -20,15 +21,21 @@ public class AuthService : IAuthService
     private readonly UserManager<AppUser> _userManager;
     private readonly SignInManager<AppUser> _signInManager;
     private readonly JwtSettings _jwtSettings;
+    private readonly SmtpSettings _smtpSettings;
+    private readonly IEmailService _emailService;
 
     public AuthService(
         UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager,
-        IOptions<JwtSettings> jwtSettings)
+        IOptions<JwtSettings> jwtSettings,
+        IOptions<SmtpSettings> smtpSettings,
+        IEmailService emailService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _jwtSettings = jwtSettings.Value;
+        _smtpSettings = smtpSettings.Value;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -43,6 +50,17 @@ public class AuthService : IAuthService
             {
                 Success = false,
                 ErrorMessage = "Invalid email or password"
+            };
+        }
+
+        // Check if email is verified
+        if (!user.EmailConfirmed)
+        {
+            return new LoginResponse
+            {
+                Success = false,
+                ErrorMessage = "Please verify your email before logging in. Check your inbox for the verification link.",
+                RequiresEmailVerification = true
             };
         }
 
@@ -69,15 +87,15 @@ public class AuthService : IAuthService
     }
 
     /// <summary>
-    /// Registers a new user.
+    /// Registers a new user and sends verification email.
     /// </summary>
-    public async Task<LoginResponse> RegisterAsync(RegisterRequest request)
+    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
     {
         // Check if user already exists
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser != null)
         {
-            return new LoginResponse
+            return new RegisterResponse
             {
                 Success = false,
                 ErrorMessage = "A user with this email already exists"
@@ -96,13 +114,14 @@ public class AuthService : IAuthService
             Email = request.Email,
             FullName = request.FullName,
             UniversityId = request.UniversityId,
-            UserType = userType
+            UserType = userType,
+            EmailConfirmed = false
         };
 
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
-            return new LoginResponse
+            return new RegisterResponse
             {
                 Success = false,
                 ErrorMessage = string.Join(", ", result.Errors.Select(e => e.Description))
@@ -112,16 +131,122 @@ public class AuthService : IAuthService
         // Add role claim
         await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Role, userType.ToString()));
 
-        var token = GenerateJwtToken(user);
-        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes);
+        // Generate email confirmation token and send email
+        await SendVerificationEmailAsync(user);
 
-        return new LoginResponse
+        return new RegisterResponse
         {
             Success = true,
-            Token = token,
-            ExpiresAt = expiresAt,
-            User = MapToUserDto(user)
+            Message = "Registration successful! Please check your email to verify your account.",
+            UserId = user.Id
         };
+    }
+
+    /// <summary>
+    /// Verifies user email with the provided token.
+    /// </summary>
+    public async Task<VerifyEmailResponse> VerifyEmailAsync(VerifyEmailRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(request.UserId);
+        if (user == null)
+        {
+            return new VerifyEmailResponse
+            {
+                Success = false,
+                ErrorMessage = "Invalid verification link"
+            };
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return new VerifyEmailResponse
+            {
+                Success = true,
+                Message = "Email is already verified. You can log in."
+            };
+        }
+
+        var result = await _userManager.ConfirmEmailAsync(user, request.Token);
+        if (!result.Succeeded)
+        {
+            return new VerifyEmailResponse
+            {
+                Success = false,
+                ErrorMessage = "Invalid or expired verification token. Please request a new verification email."
+            };
+        }
+
+        return new VerifyEmailResponse
+        {
+            Success = true,
+            Message = "Email verified successfully! You can now log in."
+        };
+    }
+
+    /// <summary>
+    /// Resends verification email to the user.
+    /// </summary>
+    public async Task<VerifyEmailResponse> ResendVerificationEmailAsync(string email)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            // Don't reveal if user exists
+            return new VerifyEmailResponse
+            {
+                Success = true,
+                Message = "If an account with this email exists, a verification email has been sent."
+            };
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return new VerifyEmailResponse
+            {
+                Success = true,
+                Message = "Email is already verified. You can log in."
+            };
+        }
+
+        await SendVerificationEmailAsync(user);
+
+        return new VerifyEmailResponse
+        {
+            Success = true,
+            Message = "Verification email sent. Please check your inbox."
+        };
+    }
+
+    private async Task SendVerificationEmailAsync(AppUser user)
+    {
+        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        var encodedToken = HttpUtility.UrlEncode(token);
+        var verificationLink = $"{_smtpSettings.FrontendBaseUrl}/verify-email?userId={user.Id}&token={encodedToken}";
+
+        var subject = "Verify your SnapRoll account";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+                <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+                    <h1 style='color: #4F46E5;'>Welcome to SnapRoll!</h1>
+                    <p>Hi {user.FullName},</p>
+                    <p>Thank you for registering with SnapRoll. Please verify your email address by clicking the button below:</p>
+                    <div style='text-align: center; margin: 30px 0;'>
+                        <a href='{verificationLink}' 
+                           style='background-color: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>
+                            Verify Email
+                        </a>
+                    </div>
+                    <p>Or copy and paste this link into your browser:</p>
+                    <p style='word-break: break-all; color: #6B7280;'>{verificationLink}</p>
+                    <p>This link will expire in 24 hours.</p>
+                    <hr style='border: none; border-top: 1px solid #E5E7EB; margin: 30px 0;'>
+                    <p style='color: #6B7280; font-size: 12px;'>If you didn't create an account with SnapRoll, please ignore this email.</p>
+                </div>
+            </body>
+            </html>";
+
+        await _emailService.SendEmailAsync(user.Email!, subject, body);
     }
 
     /// <summary>

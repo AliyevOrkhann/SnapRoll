@@ -26,6 +26,7 @@ public class LoginResponse
     public DateTime? ExpiresAt { get; set; }
     public UserDto? User { get; set; }
     public string? ErrorMessage { get; set; }
+    public bool RequiresEmailVerification { get; set; }
 }
 
 /// <summary>
@@ -51,3 +52,42 @@ public class RegisterRequest
     public string UniversityId { get; set; } = string.Empty;
     public string UserType { get; set; } = "Student";
 }
+
+/// <summary>
+/// Registration response (doesn't include token until email is verified).
+/// </summary>
+public class RegisterResponse
+{
+    public bool Success { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string? Message { get; set; }
+    public string? UserId { get; set; }
+}
+
+/// <summary>
+/// Email verification request.
+/// </summary>
+public class VerifyEmailRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Email verification response.
+/// </summary>
+public class VerifyEmailResponse
+{
+    public bool Success { get; set; }
+    public string? Message { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
+/// <summary>
+/// Resend verification email request.
+/// </summary>
+public class ResendVerificationRequest
+{
+    public string Email { get; set; } = string.Empty;
+}
+

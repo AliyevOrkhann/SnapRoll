@@ -13,9 +13,19 @@ public interface IAuthService
     Task<LoginResponse> LoginAsync(LoginRequest request);
 
     /// <summary>
-    /// Registers a new user.
+    /// Registers a new user and sends verification email.
     /// </summary>
-    Task<LoginResponse> RegisterAsync(RegisterRequest request);
+    Task<RegisterResponse> RegisterAsync(RegisterRequest request);
+
+    /// <summary>
+    /// Verifies user email with the provided token.
+    /// </summary>
+    Task<VerifyEmailResponse> VerifyEmailAsync(VerifyEmailRequest request);
+
+    /// <summary>
+    /// Resends verification email to the user.
+    /// </summary>
+    Task<VerifyEmailResponse> ResendVerificationEmailAsync(string email);
 
     /// <summary>
     /// Gets user information by ID.

@@ -39,14 +39,14 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Registers a new user.
+    /// Registers a new user and sends verification email.
     /// </summary>
     /// <param name="request">Registration details.</param>
-    /// <returns>JWT token and user information.</returns>
+    /// <returns>Success message instructing user to verify email.</returns>
     [HttpPost("register")]
-    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<LoginResponse>> Register([FromBody] RegisterRequest request)
+    [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request)
     {
         var result = await _authService.RegisterAsync(request);
         
@@ -55,6 +55,39 @@ public class AuthController : ControllerBase
             return BadRequest(result);
         }
 
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Verifies user email address.
+    /// </summary>
+    /// <param name="request">User ID and verification token.</param>
+    /// <returns>Verification result.</returns>
+    [HttpPost("verify-email")]
+    [ProducesResponseType(typeof(VerifyEmailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(VerifyEmailResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<VerifyEmailResponse>> VerifyEmail([FromBody] VerifyEmailRequest request)
+    {
+        var result = await _authService.VerifyEmailAsync(request);
+        
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Resends verification email.
+    /// </summary>
+    /// <param name="request">Email address.</param>
+    /// <returns>Result message.</returns>
+    [HttpPost("resend-verification")]
+    [ProducesResponseType(typeof(VerifyEmailResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<VerifyEmailResponse>> ResendVerification([FromBody] ResendVerificationRequest request)
+    {
+        var result = await _authService.ResendVerificationEmailAsync(request.Email);
         return Ok(result);
     }
 }
