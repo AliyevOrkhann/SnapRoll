@@ -42,9 +42,9 @@ public class Session
 
     /// <summary>
     /// Late threshold in seconds after StartTime.
-    /// Default is 60 seconds (1 minute).
+    /// Default is 300 seconds (5 minutes).
     /// </summary>
-    public int LateThresholdSeconds { get; set; } = 60;
+    public int LateThresholdSeconds { get; set; } = 300;
 
     /// <summary>
     /// Instructor's Latitude at session start.

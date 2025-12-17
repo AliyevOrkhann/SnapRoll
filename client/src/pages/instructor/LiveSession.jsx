@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSignalR } from '../../context/SignalRContext';
 import QRCode from 'react-qr-code';
 import api from '../../api/axios';
-import { Users, Clock, StopCircle, RefreshCw, Smartphone } from 'lucide-react';
+import { Users, Clock, StopCircle, RefreshCw, Smartphone, Maximize, Minimize } from 'lucide-react';
 
 export const LiveSession = () => {
     const { sessionId } = useParams();
@@ -19,6 +19,7 @@ export const LiveSession = () => {
     const [markingIds, setMarkingIds] = useState([]);
     const [showEndSessionModal, setShowEndSessionModal] = useState(false);
     const [showSessionClosedModal, setShowSessionClosedModal] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const streamRef = useRef(null);
 
     // 1. Initial Data Fetch
@@ -165,13 +166,15 @@ export const LiveSession = () => {
                     <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg blur opacity-25 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
                     <div className="relative bg-white p-6 rounded-lg border-2 border-gray-100">
                         {qrPayload ? (
-                            <div style={{ height: "auto", margin: "0 auto", maxWidth: 300, width: "100%" }}>
-                                <QRCode
-                                    size={512}
-                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                    value={qrPayload}
-                                    viewBox={`0 0 256 256`}
-                                />
+                            <div className="relative">
+                                <div style={{ height: "auto", margin: "0 auto", maxWidth: 300, width: "100%" }}>
+                                    <QRCode
+                                        size={512}
+                                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                        value={qrPayload}
+                                        viewBox={`0 0 256 256`}
+                                    />
+                                </div>
                             </div>
                         ) : (
                             <div className="h-[300px] w-[300px] flex items-center justify-center bg-gray-50 rounded text-gray-400">
@@ -180,6 +183,15 @@ export const LiveSession = () => {
                         )}
                     </div>
                 </div>
+
+                {qrPayload && (
+                    <button
+                        onClick={() => setIsFullscreen(true)}
+                        className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium transition-colors"
+                    >
+                        <Maximize className="w-4 h-4" /> Fullscreen Mode
+                    </button>
+                )}
 
                 <div className="mt-8 text-center max-w-md">
                     <p className="text-gray-500 flex items-center justify-center mb-2">
@@ -192,6 +204,33 @@ export const LiveSession = () => {
                     <p className="text-xs text-gray-400 mt-2">Code rotates every 2 seconds for security</p>
                 </div>
             </div>
+
+            {/* Fullscreen QR Modal */}
+            {isFullscreen && qrPayload && (
+                <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-8">
+                    <button
+                        onClick={() => setIsFullscreen(false)}
+                        className="absolute top-6 right-6 p-4 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                    >
+                        <Minimize className="w-8 h-8 text-gray-700" />
+                    </button>
+
+                    <h2 className="text-4xl font-bold text-gray-800 mb-12">{session?.courseName} Attendance</h2>
+
+                    <div className="w-full max-w-3xl aspect-square bg-white p-4">
+                        <QRCode
+                            size={1024}
+                            style={{ height: "100%", width: "100%" }}
+                            value={qrPayload}
+                            viewBox={`0 0 256 256`}
+                        />
+                    </div>
+
+                    <p className="mt-12 text-2xl text-gray-500 font-medium animate-pulse">
+                        Scanning in progress...
+                    </p>
+                </div>
+            )}
 
             {/* Right Panel: Stats & Controls */}
             <div className="lg:w-96 flex flex-col gap-4">
